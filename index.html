@@ -1104,14 +1104,29 @@ function App(){
   const filtrado=filtro==="todos"?props:props.filter(p=>p.locador===filtro);
   const curYM=nowYM();
 
-  // Total del mes: suma de lo cobrado + monto vigente de los que aún no pagaron
+  // Total del mes: suma de lo cobrado + monto que corresponde al mes actual para los que aún no pagaron
+  const montoParaMes=(p,ym)=>{
+    // Si montoVigenteDesde está seteado y es posterior al mes consultado,
+    // buscar el monto anterior en el historial de actualizaciones
+    if(p.montoVigenteDesde&&p.montoVigenteDesde>ym){
+      const acts=[...(p.actualizaciones||[])].sort((a,b)=>b.mes.localeCompare(a.mes));
+      // Buscar la última actualización cuyo mes sea <= ym
+      const actAnterior=acts.find(a=>a.mes<=ym);
+      if(actAnterior) return actAnterior.montoNuevo;
+      // Si no hay ninguna, usar el monto anterior a la primera actualización
+      const actMasVieja=acts[acts.length-1];
+      if(actMasVieja) return actMasVieja.montoAnterior;
+    }
+    return Number(p.montoActual||0);
+  };
+
   const totalCobradoMes=props.reduce((s,p)=>{
     const pago=(p.pagos||[]).find(x=>x.mes===curYM);
     return s+(pago?pago.montoPagado:0);
   },0);
   const totalPendienteMes=props.reduce((s,p)=>{
     const pago=(p.pagos||[]).find(x=>x.mes===curYM);
-    return s+(pago?0:Number(p.montoActual||0));
+    return s+(pago?0:montoParaMes(p,curYM));
   },0);
   const totalEsperadoMes=totalCobradoMes+totalPendienteMes;
 
