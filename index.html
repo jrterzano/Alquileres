@@ -1,0 +1,1220 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Gestión de Alquileres</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    window.enviarEmail = async function(titulo, mensaje) {
+      try {
+        const res = await fetch("https://formspree.io/f/mvzvvbkw", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Accept": "application/json" },
+          body: JSON.stringify({ titulo, mensaje })
+        });
+        return res.ok;
+      } catch(e) { return false; }
+    };
+  </script>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Serif+Display&display=swap" rel="stylesheet"/>
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
+    import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
+    const app = initializeApp({
+      apiKey:"AIzaSyDeaRevtQW_1J2eJwbVovAZBvQnU5X1KJw",
+      authDomain:"alquileres-5cbe9.firebaseapp.com",
+      projectId:"alquileres-5cbe9",
+      storageBucket:"alquileres-5cbe9.firebasestorage.app",
+      messagingSenderId:"222316362161",
+      appId:"1:222316362161:web:282651cbc0a5228700a590"
+    });
+    const db = getFirestore(app);
+    window.fbGet=async(k)=>{try{const s=await getDoc(doc(db,"datos",k));return s.exists()?s.data().value:null;}catch{return null;}};
+    window.fbSet=async(k,v)=>{try{await setDoc(doc(db,"datos",k),{value:v});}catch(e){console.error(e);}};
+    window.firebaseReady=true;
+    window.dispatchEvent(new Event("firebaseReady"));
+  </script>
+  <style>
+    *{box-sizing:border-box;}body{margin:0;font-family:'DM Sans',sans-serif;background:#060a14;}
+    input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;}
+    ::-webkit-scrollbar{width:6px;}::-webkit-scrollbar-track{background:#0a0e1c;}
+    ::-webkit-scrollbar-thumb{background:#2e3858;border-radius:3px;}
+  </style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect } = React;
+
+// ── EMAIL ─────────────────────────────────────────────────────────────────────
+async function enviarAlertaEmail(titulo, mensaje) {
+  try { return await window.enviarEmail(titulo, mensaje); } catch { return false; }
+}
+
+// ── CONSTANTES ────────────────────────────────────────────────────────────────
+const MESES=["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+
+// ── UTILIDADES ────────────────────────────────────────────────────────────────
+const pad=n=>String(n).padStart(2,"0");
+const makeYM=(y,m)=>`${y}-${pad(m)}`;
+function ymAdd(ym,n){const[y,m]=ym.split("-").map(Number);const d=new Date(y,m-1+n,1);return makeYM(d.getFullYear(),d.getMonth()+1);}
+function ymLabel(ym){if(!ym)return"–";const[y,m]=ym.split("-").map(Number);return`${MESES[m-1]} ${y}`;}
+function fDate(s){if(!s)return"–";return new Date(s+"T00:00:00").toLocaleDateString("es-AR",{day:"2-digit",month:"2-digit",year:"numeric"});}
+function fARS(v){if(!v&&v!==0)return"–";return new Intl.NumberFormat("es-AR",{style:"currency",currency:"ARS",maximumFractionDigits:0}).format(v);}
+const nowYM=()=>{const t=new Date();return makeYM(t.getFullYear(),t.getMonth()+1);};
+const todayStr=()=>{const t=new Date();return`${t.getFullYear()}-${pad(t.getMonth()+1)}-${pad(t.getDate())}`;};
+
+function getIPCLabels(updateYM){
+  return[4,3,2].map(offset=>{
+    const[y,m]=updateYM.split("-").map(Number);
+    const d=new Date(y,m-1-offset,1);
+    return`${MESES[d.getMonth()]} ${d.getFullYear()}`;
+  });
+}
+
+// Calcular período del servicio según inicio de contrato y mes de pago
+function calcPeriodo(diaInicio, mesPago) {
+  if(!mesPago) return {desde:"–",hasta:"–"};
+  const dia=Number(diaInicio)||1;
+  const[y,m]=mesPago.split("-").map(Number);
+  if(dia===1){
+    const ultimoDia=new Date(y,m,0).getDate();
+    return{desde:`01/${pad(m)}/${y}`,hasta:`${ultimoDia}/${pad(m)}/${y}`};
+  }
+  // Período del diaInicio del mes de pago al diaInicio-1 del mes siguiente
+  const mSig=m===12?1:m+1;
+  const ySig=m===12?y+1:y;
+  return{desde:`${pad(dia)}/${pad(m)}/${y}`,hasta:`${pad(dia-1)}/${pad(mSig)}/${ySig}`};
+}
+
+// ── CONTRATOS ─────────────────────────────────────────────────────────────────
+const CAMPOS_CONTRATO=["inquilino","telefono","emailInquilino","inicioContrato","vencimientoContrato",
+  "montoActual","montoVigenteDesde","proximaActualizacion","tipoDoc1","docNum1","condicionFiscal1",
+  "inquilino2","tipoDoc2","docNum2","condicionFiscal2","formaPago","montoUSD","cotizacionUSD",
+  "diaInicioPeriodo","diaVencimientoPago","actualizaciones","pagos","indicesPendientes","historialManual"];
+
+function archivarContrato(prop){
+  const snap={};
+  CAMPOS_CONTRATO.forEach(k=>{snap[k]=prop[k];});
+  return{id:Date.now(),fechaArchivo:todayStr(),...snap};
+}
+
+function resetContrato(prop){
+  const reset={};
+  CAMPOS_CONTRATO.forEach(k=>{
+    if(["actualizaciones","pagos"].includes(k))reset[k]=[];
+    else if(k==="indicesPendientes"||k==="historialManual")reset[k]={};
+    else if(k==="diaInicioPeriodo")reset[k]=1;
+    else if(k==="diaVencimientoPago")reset[k]=5;
+    else if(k==="condicionFiscal1"||k==="condicionFiscal2")reset[k]="Consumidor Final";
+    else if(k==="tipoDoc1"||k==="tipoDoc2")reset[k]="DNI";
+    else reset[k]="";
+  });
+  return reset;
+}
+
+// ── ALERTAS ───────────────────────────────────────────────────────────────────
+function calcAlertas(props){
+  const hoy=new Date();
+  const hy=hoy.getFullYear(),hm=hoy.getMonth(),hd=hoy.getDate();
+  const res=[];
+  props.forEach(p=>{
+    if(p.vencimientoContrato){
+      const v=new Date(p.vencimientoContrato+"T00:00:00");
+      const dias=Math.round((v-hoy)/86400000);
+      if(dias>0&&dias<=92) res.push({tipo:"vencimiento",prop:p,dias,venc:p.vencimientoContrato,id:`venc-${p.id}-${p.vencimientoContrato}`});
+    }
+    if(p.proximaActualizacion){
+      const[uy,um]=p.proximaActualizacion.split("-").map(Number);
+      let pm=um-2,py=uy;
+      if(pm<0){pm=11;py--;}
+      const pendientes=p.indicesPendientes||{};
+      const vals=pendientes[p.proximaActualizacion]||[null,null,null];
+      const todosCargados=vals.every(v=>v!==null&&v!=="");
+      const aplicada=(p.actualizaciones||[]).some(a=>a.mes===p.proximaActualizacion);
+      if(hy===py&&hm===pm&&hd>=15&&!todosCargados&&!aplicada)
+        res.push({tipo:"indices",prop:p,mes:p.proximaActualizacion,id:`ipc-${p.id}-${p.proximaActualizacion}`});
+    }
+  });
+  return res;
+}
+
+// ── DEFAULTS ──────────────────────────────────────────────────────────────────
+const EMPTY_PROP={
+  id:null,locador:"1",direccion:"",inquilino:"",telefono:"",
+  inicioContrato:"",vencimientoContrato:"",montoActual:"",proximaActualizacion:"",notas:"",
+  actualizaciones:[],pagos:[],indicesPendientes:{},
+  tipoDoc1:"DNI",docNum1:"",condicionFiscal1:"Consumidor Final",
+  inquilino2:"",tipoDoc2:"DNI",docNum2:"",condicionFiscal2:"Consumidor Final",
+  formaPago:"",
+  montoUSD:"",cotizacionUSD:"",
+  diaInicioPeriodo:1,diaVencimientoPago:5,
+  montoVigenteDesde:"",
+  contratos:[]
+};
+const DEFAULT_SETTINGS={
+  locador1:"",cuit1:"20-16197324-7",puntoVenta1:"00003",
+  locador2:"",cuit2:"27-16677699-1",puntoVenta2:"00001"
+};
+
+// ── ESTILOS ───────────────────────────────────────────────────────────────────
+const inp="w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2.5 text-slate-200 text-sm focus:outline-none focus:border-yellow-600 transition-colors placeholder-gray-700";
+const lbl="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-widest";
+const btnP="flex-1 bg-yellow-300 text-gray-950 font-bold py-2.5 rounded-xl text-sm hover:bg-yellow-200 transition-colors cursor-pointer";
+const btnG="px-5 py-2.5 border border-gray-800 text-gray-500 rounded-xl text-sm hover:border-gray-600 hover:text-gray-300 transition-colors cursor-pointer";
+
+// ── MODAL ─────────────────────────────────────────────────────────────────────
+function Modal({title,onClose,wide=false,children}){
+  return(
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4" onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
+      <div className={`bg-gray-900 border border-gray-800 rounded-2xl shadow-2xl w-full ${wide?"max-w-2xl":"max-w-md"} overflow-y-auto`} style={{maxHeight:"92vh"}}>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-800">
+          <h2 className="font-bold text-yellow-300 text-sm tracking-wide">{title}</h2>
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-500 hover:text-white hover:bg-white/10 text-xl leading-none cursor-pointer">×</button>
+        </div>
+        <div className="p-6">{children}</div>
+      </div>
+    </div>
+  );
+}
+
+// ── FORM INMUEBLE ─────────────────────────────────────────────────────────────
+function FormInmueble({initial,settings,onSave,onCancel}){
+  const[f,setF]=useState(initial||EMPTY_PROP);
+  const set=(k,v)=>setF(p=>({...p,[k]:v}));
+  const submit=()=>{
+    if(!f.direccion.trim())return alert("La dirección es obligatoria.");
+    if(!f.montoActual||isNaN(Number(f.montoActual)))return alert("El monto vigente es obligatorio.");
+    if(!f.proximaActualizacion)return alert("La próxima actualización es obligatoria.");
+    onSave({...f,id:f.id||Date.now(),actualizaciones:f.actualizaciones||[],pagos:f.pagos||[],indicesPendientes:f.indicesPendientes||{}});
+  };
+  const L1=settings.locador1||"Locador 1",L2=settings.locador2||"Locador 2";
+  return(
+    <div className="space-y-4">
+      <div>
+        <label className={lbl}>Locador</label>
+        <div className="grid grid-cols-2 gap-2">
+          {[["1",L1],["2",L2]].map(([k,name])=>(
+            <button key={k} onClick={()=>set("locador",k)} className={`py-2.5 rounded-xl text-sm font-bold border transition-all cursor-pointer ${f.locador===k?(k==="1"?"bg-blue-900/60 border-blue-500 text-blue-200":"bg-purple-900/60 border-purple-500 text-purple-200"):"bg-transparent border-gray-800 text-gray-500"}`}>{name}</button>
+          ))}
+        </div>
+      </div>
+      <div><label className={lbl}>Dirección *</label><input className={inp} value={f.direccion} onChange={e=>set("direccion",e.target.value)} placeholder="Av. Corrientes 1234, CABA"/></div>
+
+      {/* Inquilino 1 */}
+      <div className="border border-gray-800 rounded-xl p-3 space-y-3">
+        <div className="text-xs font-bold text-gray-500 uppercase tracking-widest">Inquilino 1</div>
+        <div className="grid grid-cols-2 gap-3">
+          <div><label className={lbl}>Nombre</label><input className={inp} value={f.inquilino} onChange={e=>set("inquilino",e.target.value)} placeholder="Nombre y apellido"/></div>
+          <div><label className={lbl}>Teléfono</label><input className={inp} value={f.telefono} onChange={e=>set("telefono",e.target.value)} placeholder="+54 9 11..."/></div>
+        </div>
+        <div><label className={lbl}>Email</label><input className={inp} type="email" value={f.emailInquilino||""} onChange={e=>set("emailInquilino",e.target.value)} placeholder="correo@ejemplo.com"/></div>
+        <div className="grid grid-cols-3 gap-2">
+          <div>
+            <label className={lbl}>Tipo doc.</label>
+            <select className={inp} value={f.tipoDoc1||"DNI"} onChange={e=>set("tipoDoc1",e.target.value)}>
+              <option>DNI</option><option>CUIT</option><option>CUIL</option>
+            </select>
+          </div>
+          <div className="col-span-2"><label className={lbl}>Número</label><input className={inp} value={f.docNum1||""} onChange={e=>set("docNum1",e.target.value)} placeholder="Nº de documento"/></div>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className={lbl}>Condición fiscal</label>
+            <select className={inp} value={f.condicionFiscal1||"Consumidor Final"} onChange={e=>set("condicionFiscal1",e.target.value)}>
+              <option>Consumidor Final</option>
+              <option>Monotributista</option>
+              <option>Responsable Inscripto</option>
+              <option>Exento</option>
+            </select>
+          </div>
+          <div><label className={lbl}>Forma de pago</label><input className={inp} value={f.formaPago||""} onChange={e=>set("formaPago",e.target.value)} placeholder="Transferencia, efectivo..."/></div>
+        </div>
+      </div>
+
+      {/* Inquilino 2 (opcional) */}
+      <div className="border border-gray-800 rounded-xl p-3 space-y-3">
+        <div className="text-xs font-bold text-gray-500 uppercase tracking-widest">Inquilino 2 <span className="text-gray-700 normal-case font-normal">(opcional)</span></div>
+        <div><label className={lbl}>Nombre</label><input className={inp} value={f.inquilino2||""} onChange={e=>set("inquilino2",e.target.value)} placeholder="Nombre y apellido (si hay un segundo inquilino)"/></div>
+        {(f.inquilino2||"").trim()&&(
+          <div className="space-y-3">
+            <div className="grid grid-cols-3 gap-2">
+              <div>
+                <label className={lbl}>Tipo doc.</label>
+                <select className={inp} value={f.tipoDoc2||"DNI"} onChange={e=>set("tipoDoc2",e.target.value)}>
+                  <option>DNI</option><option>CUIT</option><option>CUIL</option>
+                </select>
+              </div>
+              <div className="col-span-2"><label className={lbl}>Número</label><input className={inp} value={f.docNum2||""} onChange={e=>set("docNum2",e.target.value)} placeholder="Nº de documento"/></div>
+            </div>
+            <div>
+              <label className={lbl}>Condición fiscal</label>
+              <select className={inp} value={f.condicionFiscal2||"Consumidor Final"} onChange={e=>set("condicionFiscal2",e.target.value)}>
+                <option>Consumidor Final</option>
+                <option>Monotributista</option>
+                <option>Responsable Inscripto</option>
+                <option>Exento</option>
+              </select>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div><label className={lbl}>Inicio contrato</label><input className={inp} type="date" value={f.inicioContrato||""} onChange={e=>set("inicioContrato",e.target.value)}/></div>
+        <div><label className={lbl}>Vencimiento contrato</label><input className={inp} type="date" value={f.vencimientoContrato} onChange={e=>set("vencimientoContrato",e.target.value)}/></div>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div><label className={lbl}>Monto vigente ($ARS) *</label><input className={inp} type="number" value={f.montoActual} onChange={e=>set("montoActual",e.target.value)} placeholder="0"/></div>
+        <div><label className={lbl}>Próxima actualización *</label><input className={inp} type="month" value={f.proximaActualizacion} onChange={e=>set("proximaActualizacion",e.target.value)}/></div>
+      </div>
+      <div>
+        <label className={lbl}>Vigente desde</label>
+        <input className={inp} type="month" value={f.montoVigenteDesde||""} onChange={e=>set("montoVigenteDesde",e.target.value)}/>
+        {f.montoVigenteDesde&&f.proximaActualizacion&&ymAdd(f.montoVigenteDesde,3)!==f.proximaActualizacion&&(
+          <div className="text-xs text-yellow-500 mt-1">⚠️ El mes de actualización debería ser {ymLabel(ymAdd(f.montoVigenteDesde,3))} (3 meses desde el inicio de vigencia)</div>
+        )}
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div><label className={lbl}>Monto en USD (opcional)</label><input className={inp} type="number" step="0.01" value={f.montoUSD||""} onChange={e=>set("montoUSD",e.target.value)} placeholder="0.00"/></div>
+        <div><label className={lbl}>Cotización USD vendedor BNA</label><input className={inp} type="number" step="0.01" value={f.cotizacionUSD||""} onChange={e=>set("cotizacionUSD",e.target.value)} placeholder="$ por dólar"/></div>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className={lbl}>Día inicio período facturado</label>
+          <input className={inp} type="number" min="1" max="28" value={f.diaInicioPeriodo||1} onChange={e=>set("diaInicioPeriodo",Number(e.target.value))} placeholder="1"/>
+          <div className="text-xs text-gray-600 mt-1">Por defecto: 1 (hasta fin de mes)</div>
+        </div>
+        <div>
+          <label className={lbl}>Día vencimiento del pago</label>
+          <input className={inp} type="number" min="1" max="31" value={f.diaVencimientoPago||5} onChange={e=>set("diaVencimientoPago",Number(e.target.value))} placeholder="5"/>
+          <div className="text-xs text-gray-600 mt-1">Por defecto: 5 de cada mes</div>
+        </div>
+      </div>
+      <div><label className={lbl}>Notas</label><textarea className={`${inp} resize-none`} rows={2} value={f.notas} onChange={e=>set("notas",e.target.value)} placeholder="Observaciones, expensas, cláusulas..."/></div>
+      <div className="flex gap-3 pt-1"><button onClick={submit} className={btnP}>Guardar inmueble</button><button onClick={onCancel} className={btnG}>Cancelar</button></div>
+    </div>
+  );
+}
+
+// ── FORM ÍNDICES IPC ──────────────────────────────────────────────────────────
+function FormIndices({prop,onSave,onCancel}){
+  const mes=prop.proximaActualizacion||nowYM();
+  const labels=getIPCLabels(mes);
+  const existing=(prop.indicesPendientes||{})[mes]||[null,null,null];
+  const[vals,setVals]=useState(existing.map(v=>v!==null?String(v):""));
+  const setV=(i,v)=>setVals(a=>{const n=[...a];n[i]=v;return n;});
+  const nums=vals.map(v=>v!==""?parseFloat(v):null);
+  const allFilled=nums.every(v=>v!==null&&!isNaN(v));
+  const factor=allFilled?(1+nums[0]/100)*(1+nums[1]/100)*(1+nums[2]/100):null;
+  const pct=factor?((factor-1)*100).toFixed(2):null;
+  const montoAnt=Number(prop.montoActual)||0;
+  const montoNuevo=factor?Math.round(montoAnt*factor):null;
+  const guardarParcial=()=>{const p={...(prop.indicesPendientes||{}),[mes]:nums};onSave({...prop,indicesPendientes:p},false);};
+  const aplicar=()=>{
+    if(!allFilled)return alert("Faltan índices.");
+    const act={id:Date.now(),mes,ipc:nums,factor,montoAnterior:montoAnt,montoNuevo,fechaCarga:todayStr()};
+    const p={...(prop.indicesPendientes||{})};delete p[mes];
+    onSave({...prop,montoActual:montoNuevo,montoVigenteDesde:mes,proximaActualizacion:ymAdd(mes,3),actualizaciones:[...(prop.actualizaciones||[]),act],indicesPendientes:p},true);
+  };
+  const cargados=nums.filter(v=>v!==null&&!isNaN(v)).length;
+  return(
+    <div className="space-y-5">
+      <div className="bg-gray-950 rounded-xl p-4 border border-gray-800">
+        <div className="font-semibold text-slate-200 text-sm">{prop.direccion}</div>
+        <div className="text-xs text-gray-500 mt-1">Actualización: <span className="text-yellow-300 font-semibold">{ymLabel(mes)}</span> · Índices: {labels.join(", ")}</div>
+      </div>
+      <div>
+        <div className="flex items-center justify-between mb-3"><label className={lbl}>IPC-IDECBA (%)</label><span className="text-xs text-gray-600">{cargados}/3</span></div>
+        <div className="grid grid-cols-3 gap-3">
+          {labels.map((label,i)=>(
+            <div key={i} className="text-center">
+              <div className="text-xs text-gray-500 mb-2">{label}</div>
+              <input className={`w-full bg-gray-950 border ${vals[i]?"border-yellow-600/60":"border-gray-700"} rounded-xl px-2 py-3 text-slate-200 text-lg font-bold text-center focus:outline-none focus:border-yellow-500`} type="number" step="0.01" value={vals[i]} onChange={e=>setV(i,e.target.value)} placeholder="–"/>
+            </div>
+          ))}
+        </div>
+      </div>
+      {allFilled&&factor&&(
+        <div className="bg-green-950/60 border border-green-800/50 rounded-xl p-4 space-y-2">
+          <div className="flex justify-between text-sm"><span className="text-gray-400">Variación acumulada</span><span className="font-bold text-green-400">+{pct}%</span></div>
+          <div className="h-px bg-green-800/30"/>
+          <div className="flex justify-between text-sm"><span className="text-gray-400">Monto anterior</span><span className="text-gray-300">{fARS(montoAnt)}</span></div>
+          <div className="flex justify-between text-sm"><span className="text-gray-400">Monto nuevo</span><span className="text-yellow-300 font-bold">{fARS(montoNuevo)}</span></div>
+          <div className="flex justify-between text-xs text-gray-500"><span>Próxima actualización</span><span>{ymLabel(ymAdd(mes,3))}</span></div>
+        </div>
+      )}
+      {!allFilled&&cargados>0&&<div className="bg-yellow-950/40 border border-yellow-800/40 rounded-xl p-3 text-xs text-yellow-400">Podés guardar parcial y completar cuando estén disponibles.</div>}
+      <div className="flex gap-2">
+        {!allFilled&&cargados>0&&<button onClick={guardarParcial} className="flex-1 border border-yellow-700/50 text-yellow-400 font-bold py-2.5 rounded-xl text-sm cursor-pointer">💾 Guardar parcial</button>}
+        {allFilled&&<button onClick={aplicar} className={btnP}>✓ Aplicar actualización</button>}
+        <button onClick={onCancel} className={btnG}>Cancelar</button>
+      </div>
+    </div>
+  );
+}
+
+// ── FORM PAGO ─────────────────────────────────────────────────────────────────
+function FormPago({prop,onSave,onCancel}){
+  const[mes,setMes]=useState(nowYM());
+  const[monto,setMonto]=useState(String(prop.montoActual||""));
+  const[fecha,setFecha]=useState(todayStr());
+  const[arca,setArca]=useState(false);
+  const[refArca,setRefArca]=useState("");
+  const[notas,setNotas]=useState("");
+  const yaExiste=(prop.pagos||[]).some(p=>p.mes===mes);
+  const submit=()=>{
+    if(!monto||isNaN(Number(monto)))return alert("Ingresá el monto cobrado.");
+    if(!fecha)return alert("Ingresá la fecha de cobro.");
+    if(yaExiste&&!confirm(`Ya hay un pago para ${ymLabel(mes)}. ¿Agregar otro?`))return;
+    onSave({...prop,pagos:[...(prop.pagos||[]),{id:Date.now(),mes,montoPagado:Number(monto),fechaPago:fecha,facturaARCA:arca,refArca,fechaARCA:arca?fecha:"",notas}]});
+  };
+  return(
+    <div className="space-y-4">
+      <div className="bg-gray-950 rounded-xl p-4 border border-gray-800">
+        <div className="font-semibold text-slate-200 text-sm">{prop.direccion}</div>
+        <div className="text-xs text-gray-500 mt-0.5">Monto vigente: <span className="text-yellow-300">{fARS(prop.montoActual)}</span></div>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div><label className={lbl}>Mes del alquiler</label><input className={inp} type="month" value={mes} onChange={e=>setMes(e.target.value)}/>{yaExiste&&<div className="text-xs text-yellow-500 mt-1">⚠️ Ya hay un pago</div>}</div>
+        <div><label className={lbl}>Fecha de cobro</label><input className={inp} type="date" value={fecha} onChange={e=>setFecha(e.target.value)}/></div>
+      </div>
+      <div><label className={lbl}>Monto cobrado ($ARS)</label><input className={inp} type="number" value={monto} onChange={e=>setMonto(e.target.value)}/></div>
+      <div className="border border-gray-800 rounded-xl overflow-hidden">
+        <div className="flex items-center gap-3 p-4 cursor-pointer hover:bg-white/5" onClick={()=>setArca(v=>!v)}>
+          <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 ${arca?"bg-yellow-300 border-yellow-300":"border-gray-600"}`}>{arca&&<span className="text-gray-950 text-xs font-black">✓</span>}</div>
+          <div><div className="text-sm font-semibold text-slate-200">Factura ARCA emitida</div><div className="text-xs text-gray-500">Marcar una vez generada en ARCA</div></div>
+        </div>
+        {arca&&<div className="px-4 pb-4 border-t border-gray-800 pt-3"><label className={lbl}>N° comprobante / referencia</label><input className={inp} value={refArca} onChange={e=>setRefArca(e.target.value)} placeholder="Opcional"/></div>}
+      </div>
+      <div><label className={lbl}>Notas</label><input className={inp} value={notas} onChange={e=>setNotas(e.target.value)} placeholder="Observaciones opcionales..."/></div>
+      <div className="flex gap-3"><button onClick={submit} className={btnP}>Registrar cobro</button><button onClick={onCancel} className={btnG}>Cancelar</button></div>
+    </div>
+  );
+}
+
+// ── MODAL ARCA ────────────────────────────────────────────────────────────────
+function ModalARCA({prop,settings,onClose}){
+  // Si hay 2 inquilinos, preguntar cuál pagó
+  const tiene2=(prop.inquilino2||"").trim()!=="";
+  const[inquilinoSel,setInquilinoSel]=useState(tiene2?null:"1");
+  const[fechaComp,setFechaComp]=useState(todayStr());
+
+  // Último pago registrado
+  const pagos=[...(prop.pagos||[])].sort((a,b)=>b.mes.localeCompare(a.mes));
+  const ultimoPago=pagos[0]||null;
+
+  // Datos del locador
+  const esLoc1=prop.locador==="1";
+  const nombreLoc=esLoc1?settings.locador1||"Locador 1":settings.locador2||"Locador 2";
+  const cuitLoc=esLoc1?settings.cuit1||"":settings.cuit2||"";
+  const puntoVenta=esLoc1?settings.puntoVenta1||"":settings.puntoVenta2||"";
+
+  // Datos del receptor
+  const receptor=inquilinoSel==="1"
+    ?{nombre:prop.inquilino||"–",tipo:prop.tipoDoc1||"DNI",num:prop.docNum1||"–",condicion:prop.condicionFiscal1||"Consumidor Final"}
+    :{nombre:prop.inquilino2||"–",tipo:prop.tipoDoc2||"DNI",num:prop.docNum2||"–",condicion:prop.condicionFiscal2||"Consumidor Final"};
+
+  // Período
+  const periodo=ultimoPago?calcPeriodo(prop.diaInicioPeriodo||1,ultimoPago.mes):{desde:"–",hasta:"–"};
+
+  // Vencimiento del pago (día X del mes del alquiler — pago adelantado)
+  const diaVenc=prop.diaVencimientoPago||5;
+  let vencPago="–";
+  if(ultimoPago){
+    const[y,m]=ultimoPago.mes.split("-").map(Number);
+    vencPago=`${pad(diaVenc)}/${pad(m)}/${y}`;
+  }
+  const mesLabel=ultimoPago?ymLabel(ultimoPago.mes):"–";
+  const fechaComprobante=fDate(fechaComp);
+  const importe=ultimoPago?ultimoPago.montoPagado:Number(prop.montoActual)||0;
+
+  // Verificar si hay actualización pendiente
+  const actuPendiente=prop.proximaActualizacion&&(prop.actualizaciones||[]).length===0;
+
+  const descripcion=`Alquiler correspondiente al mes de ${mesLabel} — ${prop.direccion}`;
+
+  // Copy individual
+  const copiar=(texto)=>{
+    navigator.clipboard.writeText(texto).then(()=>alert("Copiado ✓")).catch(()=>{});
+  };
+
+  // Copiar todo
+  const copiarTodo=()=>{
+    const txt=`=== RECIBO C — ARCA ===
+EMISOR
+Nombre: ${nombreLoc}
+CUIT: ${cuitLoc}
+Punto de venta: ${puntoVenta}
+
+COMPROBANTE
+Tipo: Recibo C
+Concepto: Servicios (código 2)
+Fecha: ${fechaComprobante}
+
+RECEPTOR
+${receptor.tipo}: ${receptor.num}
+Nombre: ${receptor.nombre}
+Condición fiscal: ${receptor.condicion}${(prop.emailInquilino||"").trim()?`\nEmail: ${prop.emailInquilino}`:""}
+
+PERÍODO DEL SERVICIO
+Desde: ${periodo.desde}
+Hasta: ${periodo.hasta}
+Vencimiento del pago: ${vencPago}
+
+DESCRIPCIÓN
+${descripcion}
+
+IMPORTE
+${fARS(importe)}${actuPendiente?" ⚠ Revisar — posible actualización pendiente":""}${prop.montoUSD&&prop.cotizacionUSD?`
+En USD: ${prop.montoUSD} · Cotización BNA vendedor: $${prop.cotizacionUSD} · Equivalente ARS: ${fARS(Math.round(Number(prop.montoUSD)*Number(prop.cotizacionUSD)))}`:""}`;
+    navigator.clipboard.writeText(txt).then(()=>alert("Todo copiado ✓")).catch(()=>{});
+  };
+
+  const CampoConBoton=({label,valor,advertencia})=>(
+    <div className="bg-gray-950 rounded-xl p-3 border border-gray-800">
+      <div className="flex items-center justify-between mb-1">
+        <div className="text-xs font-bold text-gray-500 uppercase tracking-widest">{label}</div>
+        <button onClick={()=>copiar(valor)} className="text-xs px-2 py-1 rounded-lg bg-gray-800 text-gray-400 hover:text-white transition-colors cursor-pointer">📋 Copiar</button>
+      </div>
+      <div className="text-sm font-semibold text-slate-200">{valor}</div>
+      {advertencia&&<div className="text-xs text-yellow-500 mt-1">⚠️ {advertencia}</div>}
+    </div>
+  );
+
+  if(tiene2&&!inquilinoSel) return(
+    <Modal title="¿Quién pagó este mes?" onClose={onClose}>
+      <div className="space-y-3">
+        <div className="text-xs text-gray-500 mb-4">Hay dos inquilinos en este inmueble. Seleccioná quién realizó el pago para generar el recibo.</div>
+        {[["1",prop.inquilino,prop.tipoDoc1,prop.docNum1],["2",prop.inquilino2,prop.tipoDoc2,prop.docNum2]].map(([k,nombre,tipo,num])=>(
+          <button key={k} onClick={()=>setInquilinoSel(k)}
+            className="w-full bg-gray-950 border border-gray-800 hover:border-yellow-600 rounded-xl p-4 text-left transition-colors cursor-pointer">
+            <div className="font-semibold text-slate-200 text-sm">{nombre||"Sin nombre"}</div>
+            <div className="text-xs text-gray-500 mt-0.5">{tipo}: {num||"–"}</div>
+          </button>
+        ))}
+        <button onClick={onClose} className={`w-full mt-2 ${btnG}`}>Cancelar</button>
+      </div>
+    </Modal>
+  );
+
+  return(
+    <Modal title="Asistente de Facturación ARCA" onClose={onClose} wide>
+      <div className="space-y-3">
+        {/* Header */}
+        <div className="bg-blue-950/40 border border-blue-800/40 rounded-xl px-4 py-3 text-xs text-blue-300">
+          Tipo de comprobante: <strong>Recibo C</strong> · Concepto: <strong>Servicios (código 2)</strong>
+        </div>
+
+        {/* Emisor */}
+        <div className="bg-gray-950 rounded-xl p-3 border border-gray-800">
+          <div className="flex items-center justify-between mb-1">
+            <div className="text-xs font-bold text-gray-500 uppercase tracking-widest">Emisor</div>
+            <button onClick={()=>copiar(`${nombreLoc} — CUIT: ${cuitLoc} — Pto. venta: ${puntoVenta}`)} className="text-xs px-2 py-1 rounded-lg bg-gray-800 text-gray-400 hover:text-white cursor-pointer">📋 Copiar</button>
+          </div>
+          <div className="text-sm font-semibold text-slate-200">{nombreLoc}</div>
+          <div className="text-xs text-gray-400 mt-0.5">CUIT: {cuitLoc} · Pto. de venta: {puntoVenta}</div>
+        </div>
+
+        {/* Receptor */}
+        <div className="bg-gray-950 rounded-xl p-3 border border-gray-800">
+          <div className="flex items-center justify-between mb-1">
+            <div className="text-xs font-bold text-gray-500 uppercase tracking-widest">Receptor</div>
+            <button onClick={()=>copiar(`${receptor.tipo}: ${receptor.num} — ${receptor.nombre}`)} className="text-xs px-2 py-1 rounded-lg bg-gray-800 text-gray-400 hover:text-white cursor-pointer">📋 Copiar</button>
+          </div>
+          <div className="text-sm font-semibold text-slate-200">{receptor.nombre}</div>
+          <div className="text-xs text-gray-400 mt-0.5">{receptor.tipo}: {receptor.num}</div>
+          <div className="text-xs text-gray-400 mt-0.5">Condición fiscal: {receptor.condicion}</div>
+          {(prop.emailInquilino||"").trim()&&<div className="text-xs text-gray-400 mt-0.5">Email: {prop.emailInquilino}</div>}
+          {tiene2&&<button onClick={()=>setInquilinoSel(null)} className="text-xs text-yellow-500 mt-1 cursor-pointer hover:text-yellow-300">↩ Cambiar inquilino</button>}
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div className="bg-gray-950 rounded-xl p-3 border border-gray-800">
+            <div className="flex items-center justify-between mb-1">
+              <div className="text-xs font-bold text-gray-500 uppercase tracking-widest">Fecha del comprobante</div>
+              <button onClick={()=>copiar(fechaComprobante)} className="text-xs px-2 py-1 rounded-lg bg-gray-800 text-gray-400 hover:text-white cursor-pointer">📋</button>
+            </div>
+            <input
+              className="w-full bg-gray-900 border border-gray-700 rounded-lg px-2 py-1.5 text-slate-200 text-sm focus:outline-none focus:border-yellow-600"
+              type="date" value={fechaComp} onChange={e=>setFechaComp(e.target.value)}/>
+            <div className="text-xs text-gray-600 mt-1">Por defecto: hoy</div>
+          </div>
+          <CampoConBoton label="Importe" valor={fARS(importe)} advertencia={actuPendiente?"Revisar: posible actualización pendiente":""}/>
+        </div>
+
+        {/* Importe en USD */}
+        {prop.montoUSD&&prop.cotizacionUSD&&(
+          <div className="bg-gray-950 rounded-xl p-3 border border-gray-800">
+            <div className="flex items-center justify-between mb-1">
+              <div className="text-xs font-bold text-gray-500 uppercase tracking-widest">Importe en USD</div>
+              <button onClick={()=>copiar(`USD ${prop.montoUSD} · Cotización BNA vendedor: $${prop.cotizacionUSD} · Equivalente ARS: ${fARS(Math.round(Number(prop.montoUSD)*Number(prop.cotizacionUSD)))}`)} className="text-xs px-2 py-1 rounded-lg bg-gray-800 text-gray-400 hover:text-white cursor-pointer">📋 Copiar</button>
+            </div>
+            <div className="text-sm font-semibold text-slate-200">USD {Number(prop.montoUSD).toLocaleString("es-AR",{minimumFractionDigits:2})}</div>
+            <div className="text-xs text-gray-400 mt-0.5">Cotización BNA vendedor (día anterior): ${Number(prop.cotizacionUSD).toLocaleString("es-AR",{minimumFractionDigits:2})}</div>
+            <div className="text-xs text-yellow-300 mt-0.5 font-semibold">Equivalente ARS: {fARS(Math.round(Number(prop.montoUSD)*Number(prop.cotizacionUSD)))}</div>
+          </div>
+        )}
+
+        {/* Período */}
+        <div className="bg-gray-950 rounded-xl p-3 border border-gray-800">
+          <div className="flex items-center justify-between mb-1">
+            <div className="text-xs font-bold text-gray-500 uppercase tracking-widest">Período del servicio</div>
+            <button onClick={()=>copiar(`${periodo.desde} al ${periodo.hasta}`)} className="text-xs px-2 py-1 rounded-lg bg-gray-800 text-gray-400 hover:text-white cursor-pointer">📋 Copiar</button>
+          </div>
+          <div className="text-sm font-semibold text-slate-200">{periodo.desde} al {periodo.hasta}</div>
+          <div className="text-xs text-gray-500 mt-1">Vencimiento del pago: <span className="text-slate-300 font-semibold">{vencPago}</span></div>
+        </div>
+
+        <CampoConBoton label="Descripción" valor={descripcion}/>
+
+        {/* Forma de pago — solo registro */}
+        {(prop.formaPago||"").trim()&&(
+          <div className="bg-gray-950 rounded-xl p-3 border border-gray-800">
+            <div className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">Forma de pago <span className="text-gray-700 normal-case font-normal">(registro interno)</span></div>
+            <div className="text-sm font-semibold text-slate-200">{prop.formaPago}</div>
+          </div>
+        )}
+
+        {/* Copiar todo */}
+        <button onClick={copiarTodo} className="w-full bg-yellow-300 text-gray-950 font-bold py-3 rounded-xl text-sm hover:bg-yellow-200 transition-colors cursor-pointer mt-2">
+          📋 Copiar todos los datos
+        </button>
+
+        {!ultimoPago&&(
+          <div className="text-xs text-gray-600 text-center">No hay pagos registrados. Los datos de importe y fecha son estimados.</div>
+        )}
+      </div>
+    </Modal>
+  );
+}
+
+// ── TAB CONTRATOS ─────────────────────────────────────────────────────────────
+function TabContratos({prop,onUpdate}){
+  const[confirmando,setConfirmando]=useState(false);
+  const[verContrato,setVerContrato]=useState(null);
+  const[nuevoInquilino,setNuevoInquilino]=useState("");
+
+  const nuevoCotrato=()=>{
+    if(!nuevoInquilino.trim())return alert("Ingresá el nombre del nuevo inquilino (o el mismo si es renovación).");
+    const archivado=archivarContrato(prop);
+    const reset=resetContrato(prop);
+    onUpdate({
+      ...prop,
+      ...reset,
+      inquilino:nuevoInquilino,
+      contratos:[...(prop.contratos||[]),archivado]
+    });
+    setConfirmando(false);
+    setNuevoInquilino("");
+  };
+
+  const contratos=prop.contratos||[];
+
+  return(
+    <div className="space-y-3">
+      {/* Contrato vigente */}
+      <div className="bg-green-950/40 border border-green-800/40 rounded-xl p-3">
+        <div className="flex items-center justify-between mb-1">
+          <div className="text-xs font-bold text-green-400 uppercase tracking-widest">Contrato vigente</div>
+          <span className="text-xs bg-green-900/60 text-green-300 px-2 py-0.5 rounded-full">Activo</span>
+        </div>
+        <div className="text-sm font-semibold text-slate-200">{prop.inquilino||"Sin inquilino"}</div>
+        {prop.inquilino2&&<div className="text-xs text-gray-400">+ {prop.inquilino2}</div>}
+        <div className="text-xs text-gray-500 mt-1">
+          {prop.inicioContrato&&<span>Inicio: {fDate(prop.inicioContrato)} </span>}
+          {prop.vencimientoContrato&&<span>· Vence: {fDate(prop.vencimientoContrato)}</span>}
+        </div>
+        <div className="text-xs text-gray-500">
+          {fARS(prop.montoActual)} · {(prop.pagos||[]).length} cobros · {(prop.actualizaciones||[]).length} actualizaciones
+        </div>
+      </div>
+
+      {/* Botón nuevo contrato */}
+      {!confirmando&&(
+        <button onClick={()=>setConfirmando(true)} className="w-full py-2.5 rounded-xl border border-yellow-700/50 text-yellow-400 text-sm font-semibold hover:bg-yellow-900/20 cursor-pointer">
+          + Nuevo contrato / Renovación
+        </button>
+      )}
+
+      {confirmando&&(
+        <div className="bg-yellow-950/40 border border-yellow-700/40 rounded-xl p-4 space-y-3">
+          <div className="text-xs text-yellow-300 font-bold">Nuevo contrato</div>
+          <div className="text-xs text-gray-400 leading-relaxed">El contrato actual quedará archivado con todos sus cobros, actualizaciones e historial. Se iniciará un contrato nuevo para este inmueble.</div>
+          <div>
+            <label className="block text-xs font-bold text-gray-500 mb-1 uppercase tracking-widest">Nombre del inquilino</label>
+            <input className={inp} value={nuevoInquilino} onChange={e=>setNuevoInquilino(e.target.value)} placeholder="Mismo u otro inquilino"/>
+            <div className="text-xs text-gray-600 mt-1">Podés editar el resto de los datos del nuevo contrato después desde el botón ✏️ Editar.</div>
+          </div>
+          <div className="flex gap-2">
+            <button onClick={nuevoCotrato} className={btnP}>Archivar y crear nuevo</button>
+            <button onClick={()=>setConfirmando(false)} className={btnG}>Cancelar</button>
+          </div>
+        </div>
+      )}
+
+      {/* Contratos archivados */}
+      {contratos.length>0&&(
+        <div className="space-y-2">
+          <div className="text-xs font-bold text-gray-600 uppercase tracking-widest mt-2">Contratos anteriores</div>
+          {[...contratos].reverse().map((c,i)=>(
+            <div key={c.id} className="bg-gray-950 border border-gray-800 rounded-xl p-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-sm font-semibold text-slate-300">{c.inquilino||"Sin nombre"}{c.inquilino2?` + ${c.inquilino2}`:""}</div>
+                  <div className="text-xs text-gray-500 mt-0.5">
+                    {c.inicioContrato&&<span>{fDate(c.inicioContrato)} </span>}
+                    {c.vencimientoContrato&&<span>→ {fDate(c.vencimientoContrato)}</span>}
+                  </div>
+                  <div className="text-xs text-gray-600">{fARS(c.montoActual)} final · {(c.pagos||[]).length} cobros · Archivado {fDate(c.fechaArchivo)}</div>
+                </div>
+                <button onClick={()=>setVerContrato(verContrato===c.id?null:c.id)} className="text-xs px-2 py-1 rounded-lg bg-gray-800 text-gray-400 hover:text-white cursor-pointer">
+                  {verContrato===c.id?"▲ Cerrar":"▼ Ver"}
+                </button>
+              </div>
+              {verContrato===c.id&&(
+                <div className="mt-3 pt-3 border-t border-gray-800 space-y-2">
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      {l:"Monto final",v:fARS(c.montoActual)},
+                      {l:"Cobros registrados",v:(c.pagos||[]).length},
+                      {l:"Actualizaciones",v:(c.actualizaciones||[]).length},
+                      {l:"Total cobrado",v:fARS((c.pagos||[]).reduce((s,p)=>s+p.montoPagado,0))},
+                    ].map(it=>(
+                      <div key={it.l} className="bg-gray-900 rounded-lg p-2 border border-gray-800">
+                        <div className="text-xs text-gray-600 mb-0.5">{it.l}</div>
+                        <div className="text-sm font-bold text-slate-200">{it.v}</div>
+                      </div>
+                    ))}
+                  </div>
+                  {(c.actualizaciones||[]).length>0&&(
+                    <div>
+                      <div className="text-xs text-gray-500 mb-1">Actualizaciones aplicadas:</div>
+                      {[...c.actualizaciones].sort((a,b)=>a.mes.localeCompare(b.mes)).map(a=>(
+                        <div key={a.id} className="text-xs text-gray-500 flex justify-between py-0.5">
+                          <span>{ymLabel(a.mes)}</span>
+                          <span className="text-green-500">+{((a.factor-1)*100).toFixed(2)}% → {fARS(a.montoNuevo)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── HISTORIAL MONTOS ─────────────────────────────────────────────────────────
+function HistorialMontos({prop,onUpdate}){
+  const[editId,setEditId]=useState(null);
+  const[editMonto,setEditMonto]=useState("");
+  const[editDesde,setEditDesde]=useState("");
+  const[agregando,setAgregando]=useState(false);
+  const[nuevoMonto,setNuevoMonto]=useState("");
+  const[nuevoDesde,setNuevoDesde]=useState("");
+
+  // Construir historial: entrada inicial + cada actualización
+  const historial=[];
+  if(prop.inicioContrato||prop.montoActual){
+    // Buscar el monto inicial (antes de la primera actualización)
+    const acts=[...(prop.actualizaciones||[])].sort((a,b)=>a.mes.localeCompare(b.mes));
+    const montoInicial=acts.length>0?acts[0].montoAnterior:Number(prop.montoActual)||0;
+    const desdeInicial=prop.inicioContrato||"";
+    const hastaInicial=acts.length>0?`hasta ${ymLabel(acts[0].mes)}`:"vigente";
+    historial.push({id:"inicial",monto:montoInicial,desde:desdeInicial,hasta:hastaInicial,editable:true,tipo:"inicial"});
+    acts.forEach((a,i)=>{
+      const hasta=i<acts.length-1?`hasta ${ymLabel(acts[i+1].mes)}`:"vigente";
+      historial.push({id:a.id,monto:a.montoNuevo,desde:a.mes,hasta,editable:true,tipo:"actualizacion",pct:((a.factor-1)*100).toFixed(2)});
+    });
+    // Agregar entradas manuales del historial
+    (prop.historialManual||[]).forEach(h=>{
+      historial.push({...h,editable:true,tipo:"manual"});
+    });
+  }
+
+  // Ordenar por desde
+  historial.sort((a,b)=>(a.desde||"").localeCompare(b.desde||""));
+
+  const guardarEdicion=(item)=>{
+    if(item.tipo==="actualizacion"){
+      const acts=(prop.actualizaciones||[]).map(a=>
+        a.id===item.id?{...a,montoNuevo:Number(editMonto)}:a
+      );
+      onUpdate({...prop,actualizaciones:acts});
+    } else if(item.tipo==="manual"){
+      const hm=(prop.historialManual||[]).map(h=>
+        h.id===item.id?{...h,monto:Number(editMonto),desde:editDesde}:h
+      );
+      onUpdate({...prop,historialManual:hm});
+    }
+    setEditId(null);
+  };
+
+  const agregarEntrada=()=>{
+    if(!nuevoMonto||!nuevoDesde)return alert("Completá monto y fecha.");
+    const entrada={id:Date.now(),monto:Number(nuevoMonto),desde:nuevoDesde,nota:""};
+    onUpdate({...prop,historialManual:[...(prop.historialManual||[]),entrada]});
+    setNuevoMonto("");setNuevoDesde("");setAgregando(false);
+  };
+
+  const eliminarManual=(id)=>{
+    if(!confirm("¿Eliminar esta entrada?"))return;
+    onUpdate({...prop,historialManual:(prop.historialManual||[]).filter(h=>h.id!==id)});
+  };
+
+  return(
+    <div className="space-y-2">
+      <div className="flex items-center justify-between mb-1">
+        <div className="text-xs text-gray-500">Evolución del monto desde inicio del contrato</div>
+        <button onClick={()=>setAgregando(true)} className="text-xs px-2 py-1 rounded-lg bg-gray-800 text-gray-400 hover:text-white cursor-pointer">+ Agregar</button>
+      </div>
+
+      {historial.length===0&&<div className="text-center py-8 text-gray-600 text-sm">Sin datos. Cargá la fecha de inicio y registrá actualizaciones.</div>}
+
+      {historial.map(item=>(
+        <div key={item.id} className="bg-gray-950 rounded-xl p-3 border border-gray-800">
+          {editId===item.id?(
+            <div className="space-y-2">
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Monto ($ARS)</label>
+                  <input className="w-full bg-gray-900 border border-gray-700 rounded-lg px-2 py-1.5 text-slate-200 text-sm focus:outline-none" type="number" value={editMonto} onChange={e=>setEditMonto(e.target.value)}/>
+                </div>
+                {item.tipo==="manual"&&(
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Desde</label>
+                    <input className="w-full bg-gray-900 border border-gray-700 rounded-lg px-2 py-1.5 text-slate-200 text-sm focus:outline-none" type="month" value={editDesde} onChange={e=>setEditDesde(e.target.value)}/>
+                  </div>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <button onClick={()=>guardarEdicion(item)} className="flex-1 text-xs py-1.5 rounded-lg bg-yellow-300 text-gray-950 font-bold cursor-pointer">Guardar</button>
+                <button onClick={()=>setEditId(null)} className="text-xs px-3 py-1.5 rounded-lg border border-gray-700 text-gray-500 cursor-pointer">Cancelar</button>
+              </div>
+            </div>
+          ):(
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <div className="text-sm font-bold text-yellow-300">{fARS(item.monto)}</div>
+                <div className="text-xs text-gray-500 mt-0.5">
+                  {item.tipo==="inicial"?"Monto inicial":item.tipo==="manual"?"Carga manual":`Actualización +${item.pct}%`}
+                  {item.desde&&` · desde ${item.tipo==="actualizacion"?ymLabel(item.desde):fDate(item.desde+"T00:00:00")||item.desde}`}
+                </div>
+                <div className="text-xs text-gray-700">{item.hasta}</div>
+              </div>
+              <div className="flex gap-1">
+                <button onClick={()=>{setEditId(item.id);setEditMonto(String(item.monto));setEditDesde(item.desde||"");}} className="text-xs px-2 py-0.5 rounded-lg bg-gray-800 border border-gray-700 text-gray-400 hover:text-white cursor-pointer">✏️</button>
+                {item.tipo==="manual"&&<button onClick={()=>eliminarManual(item.id)} className="text-xs px-2 py-0.5 rounded-lg bg-red-950/50 border border-red-900/50 text-red-500 cursor-pointer">🗑️</button>}
+              </div>
+            </div>
+          )}
+        </div>
+      ))}
+
+      {agregando&&(
+        <div className="bg-gray-950 rounded-xl p-3 border border-yellow-700/40 space-y-2">
+          <div className="text-xs font-bold text-yellow-400 mb-1">Nueva entrada manual</div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Monto ($ARS)</label>
+              <input className="w-full bg-gray-900 border border-gray-700 rounded-lg px-2 py-1.5 text-slate-200 text-sm focus:outline-none" type="number" value={nuevoMonto} onChange={e=>setNuevoMonto(e.target.value)} placeholder="0"/>
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Vigente desde</label>
+              <input className="w-full bg-gray-900 border border-gray-700 rounded-lg px-2 py-1.5 text-slate-200 text-sm focus:outline-none" type="month" value={nuevoDesde} onChange={e=>setNuevoDesde(e.target.value)}/>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <button onClick={agregarEntrada} className="flex-1 text-xs py-1.5 rounded-lg bg-yellow-300 text-gray-950 font-bold cursor-pointer">Agregar</button>
+            <button onClick={()=>setAgregando(false)} className="text-xs px-3 py-1.5 rounded-lg border border-gray-700 text-gray-500 cursor-pointer">Cancelar</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── PAGO ITEM (con marcar ARCA) ───────────────────────────────────────────────
+function PagoItem({pago,prop,onUpdate}){
+  const[marcando,setMarcando]=useState(false);
+  const[editandoRef,setEditandoRef]=useState(false);
+  const[ref,setRef]=useState(pago.refArca||"");
+  const[refEdit,setRefEdit]=useState(pago.refArca||"");
+  const[fechaARCA,setFechaARCA]=useState(pago.fechaPago||todayStr());
+
+  const marcarARCA=()=>{
+    const pagosActualizados=(prop.pagos||[]).map(p=>
+      p.id===pago.id?{...p,facturaARCA:true,refArca:ref,fechaARCA}:p
+    );
+    onUpdate({...prop,pagos:pagosActualizados});
+    setMarcando(false);
+  };
+
+  const guardarRef=()=>{
+    const pagosActualizados=(prop.pagos||[]).map(p=>
+      p.id===pago.id?{...p,refArca:refEdit}:p
+    );
+    onUpdate({...prop,pagos:pagosActualizados});
+    setEditandoRef(false);
+  };
+
+  return(
+    <div className="bg-gray-950 rounded-xl p-3 border border-gray-800">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <div className="text-sm font-bold text-slate-200">{ymLabel(pago.mes)}</div>
+          <div className="text-xs text-gray-500">{fDate(pago.fechaPago)}</div>
+          {pago.refArca&&!editandoRef&&<div className="text-xs text-gray-600">Ref: {pago.refArca}</div>}
+          {pago.facturaARCA&&pago.fechaARCA&&pago.fechaARCA!==pago.fechaPago&&<div className="text-xs text-gray-600">ARCA emitida: {fDate(pago.fechaARCA)}</div>}
+          {pago.notas&&<div className="text-xs text-gray-600">{pago.notas}</div>}
+        </div>
+        <div className="text-right shrink-0 flex flex-col items-end gap-1">
+          <div className="text-sm font-bold text-yellow-300">{fARS(pago.montoPagado)}</div>
+          <div className={`text-xs font-semibold ${pago.facturaARCA?"text-green-400":"text-yellow-600"}`}>
+            {pago.facturaARCA?"✓ ARCA":"⚠ Sin ARCA"}
+          </div>
+          {pago.facturaARCA&&(
+            <div className="flex gap-1">
+              <button onClick={()=>{setRefEdit(pago.refArca||"");setEditandoRef(true);}} className="text-xs px-2 py-0.5 rounded-lg bg-gray-800 border border-gray-700 text-gray-400 hover:text-white cursor-pointer" title="Editar N° recibo">✏️</button>
+              <button onClick={()=>{if(!confirm("¿Eliminar este cobro?"))return;onUpdate({...prop,pagos:(prop.pagos||[]).filter(p=>p.id!==pago.id)});}} className="text-xs px-2 py-0.5 rounded-lg bg-red-950/50 border border-red-900/50 text-red-500 hover:bg-red-900/50 cursor-pointer">🗑️</button>
+            </div>
+          )}
+        </div>
+      </div>
+      {pago.facturaARCA&&editandoRef&&(
+        <div className="mt-2 space-y-2">
+          <input className="w-full bg-gray-900 border border-gray-700 rounded-xl px-3 py-2 text-slate-200 text-sm focus:outline-none focus:border-yellow-600"
+            value={refEdit} onChange={e=>setRefEdit(e.target.value)} placeholder="N° comprobante / referencia"/>
+          <div className="flex gap-2">
+            <button onClick={guardarRef} className="flex-1 text-xs py-1.5 rounded-lg bg-yellow-300 text-gray-950 font-bold cursor-pointer">Guardar</button>
+            <button onClick={()=>setEditandoRef(false)} className="text-xs px-3 py-1.5 rounded-lg border border-gray-700 text-gray-500 cursor-pointer">Cancelar</button>
+          </div>
+        </div>
+      )}
+      {!pago.facturaARCA&&!marcando&&(
+        <div className="mt-2 flex gap-2">
+          <button onClick={()=>setMarcando(true)} className="flex-1 text-xs py-1.5 rounded-lg bg-blue-950/50 border border-blue-900/50 text-blue-400 hover:bg-blue-900/50 cursor-pointer font-semibold">
+            🧾 Marcar ARCA
+          </button>
+          <button onClick={()=>{if(!confirm("¿Eliminar este cobro?"))return;onUpdate({...prop,pagos:(prop.pagos||[]).filter(p=>p.id!==pago.id)});}} className="text-xs px-3 py-1.5 rounded-lg bg-red-950/50 border border-red-900/50 text-red-500 hover:bg-red-900/50 cursor-pointer">
+            🗑️
+          </button>
+        </div>
+      )}
+      {!pago.facturaARCA&&marcando&&(
+        <div className="mt-2 space-y-2">
+          <div>
+            <label className="block text-xs font-bold text-gray-500 mb-1 uppercase tracking-widest">Fecha de emisión ARCA</label>
+            <input className="w-full bg-gray-900 border border-gray-700 rounded-xl px-3 py-2 text-slate-200 text-sm focus:outline-none focus:border-yellow-600"
+              type="date" value={fechaARCA} onChange={e=>setFechaARCA(e.target.value)}/>
+          </div>
+          <input className="w-full bg-gray-900 border border-gray-700 rounded-xl px-3 py-2 text-slate-200 text-sm focus:outline-none focus:border-yellow-600"
+            value={ref} onChange={e=>setRef(e.target.value)} placeholder="N° comprobante / referencia (opcional)"/>
+          <div className="flex gap-2">
+            <button onClick={marcarARCA} className="flex-1 text-xs py-1.5 rounded-lg bg-blue-900/60 border border-blue-700 text-blue-200 hover:bg-blue-800/60 cursor-pointer font-bold">✓ Confirmar</button>
+            <button onClick={()=>setMarcando(false)} className="text-xs px-3 py-1.5 rounded-lg border border-gray-700 text-gray-500 hover:text-gray-300 cursor-pointer">Cancelar</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── DETALLE INMUEBLE ──────────────────────────────────────────────────────────
+function DetalleInmueble({prop,settings,onUpdate,onClose}){
+  const[tab,setTab]=useState("pagos");
+  const[sub,setSub]=useState(null);
+  const curYM=nowYM();
+  const pagoActual=(prop.pagos||[]).find(p=>p.mes===curYM);
+  const L=prop.locador==="1"?settings.locador1||"Locador 1":settings.locador2||"Locador 2";
+  const pendientes=prop.indicesPendientes||{};
+  const teneParciales=prop.proximaActualizacion&&pendientes[prop.proximaActualizacion]&&pendientes[prop.proximaActualizacion].some(v=>v!==null&&v!=="");
+  if(sub==="pago")return<Modal title="Registrar cobro" onClose={()=>setSub(null)}><FormPago prop={prop} onSave={p=>{onUpdate(p);setSub(null);}} onCancel={()=>setSub(null)}/></Modal>;
+  if(sub==="indices")return<Modal title="Cargar índices IPC-IDECBA" onClose={()=>setSub(null)}><FormIndices prop={prop} onSave={(p)=>{onUpdate(p);setSub(null);}} onCancel={()=>setSub(null)}/></Modal>;
+  if(sub==="arca")return<ModalARCA prop={prop} settings={settings} onClose={()=>setSub(null)}/>;
+  const pagosOrdenados=[...(prop.pagos||[])].sort((a,b)=>b.mes.localeCompare(a.mes));
+  const actsOrdenadas=[...(prop.actualizaciones||[])].sort((a,b)=>b.mes.localeCompare(a.mes));
+  return(
+    <Modal title={prop.direccion} onClose={onClose} wide>
+      <div className="flex items-center gap-2 mb-4">
+        <span className={`text-xs px-2.5 py-1 rounded-full font-bold border ${prop.locador==="1"?"bg-blue-950/80 border-blue-700 text-blue-300":"bg-purple-950/80 border-purple-700 text-purple-300"}`}>{L}</span>
+        {prop.telefono&&<span className="text-xs text-gray-500">📞 {prop.telefono}</span>}
+      </div>
+      <div className="grid grid-cols-2 gap-3 mb-4">
+        {[{label:"Inquilino",val:prop.inquilino||"–"},{label:"Alquiler vigente",val:fARS(prop.montoActual)+(prop.montoVigenteDesde?` · desde ${ymLabel(prop.montoVigenteDesde)}`:""),gold:true},{label:"Próx. actualización",val:ymLabel(prop.proximaActualizacion)},{label:"Venc. contrato",val:fDate(prop.vencimientoContrato)}].map(it=>(
+          <div key={it.label} className="bg-gray-950 rounded-xl p-3 border border-gray-800">
+            <div className="text-xs font-bold text-gray-600 uppercase tracking-wider mb-1">{it.label}</div>
+            <div className={`text-sm font-bold ${it.gold?"text-yellow-300":"text-slate-200"}`}>{it.val}</div>
+          </div>
+        ))}
+      </div>
+      <div className={`px-4 py-3 rounded-xl mb-3 border ${pagoActual?"bg-green-950/50 border-green-800/50":"bg-red-950/50 border-red-900/50"}`}>
+        <div className="text-xs text-gray-500 mb-0.5">Estado {ymLabel(curYM)}</div>
+        <div className={`text-sm font-bold ${pagoActual?"text-green-400":"text-red-400"}`}>{pagoActual?(pagoActual.facturaARCA?"✓ Cobrado · ARCA emitida":"✓ Cobrado · ARCA pendiente"):"✗ Sin cobrar este mes"}</div>
+        {pagoActual&&<div className="text-xs text-gray-500 mt-0.5">{fARS(pagoActual.montoPagado)} el {fDate(pagoActual.fechaPago)}</div>}
+      </div>
+      {teneParciales&&<div className="bg-yellow-950/40 border border-yellow-700/40 rounded-xl px-4 py-2 mb-3 text-xs text-yellow-400">📊 Índices IPC parciales para {ymLabel(prop.proximaActualizacion)}</div>}
+      <div className="grid grid-cols-3 gap-2 mb-4">
+        <button onClick={()=>setSub("pago")} className="bg-green-950/50 border border-green-800/60 text-green-300 text-sm font-semibold py-2.5 rounded-xl hover:bg-green-900/50 cursor-pointer">💰 Cobro</button>
+        <button onClick={()=>setSub("indices")} className={`text-sm font-semibold py-2.5 rounded-xl cursor-pointer ${teneParciales?"bg-yellow-800/40 border border-yellow-600/60 text-yellow-200":"bg-yellow-900/20 border border-yellow-700/40 text-yellow-300"}`}>📊 IPC</button>
+        <button onClick={()=>setSub("arca")} className="bg-blue-950/50 border border-blue-800/60 text-blue-300 text-sm font-semibold py-2.5 rounded-xl hover:bg-blue-900/50 cursor-pointer">🧾 ARCA</button>
+      </div>
+      <div className="flex gap-1 bg-gray-950 rounded-xl p-1 border border-gray-800 mb-4" style={{overflowX:"auto"}}>
+        {[["pagos",`Cobros (${(prop.pagos||[]).length})`],["actualizaciones",`Actualizaciones (${(prop.actualizaciones||[]).length})`],["historial","Historial montos"],["contratos",`Contratos (${1+(prop.contratos||[]).length})`]].map(([k,l])=>(
+          <button key={k} onClick={()=>setTab(k)} className={`flex-shrink-0 px-3 py-2 rounded-lg text-xs font-bold transition-colors cursor-pointer ${tab===k?"bg-gray-800 text-slate-200":"text-gray-600 hover:text-gray-400"}`}>{l}</button>
+        ))}
+      </div>
+      {tab==="pagos"&&<div className="space-y-2">{pagosOrdenados.length===0?<div className="text-center py-8 text-gray-600 text-sm">No hay cobros</div>:pagosOrdenados.map(p=>(
+        <PagoItem key={p.id} pago={p} prop={prop} onUpdate={onUpdate}/>
+      ))}</div>}
+      {tab==="actualizaciones"&&<div className="space-y-2">{actsOrdenadas.length===0?<div className="text-center py-8 text-gray-600 text-sm">Sin actualizaciones</div>:actsOrdenadas.map(a=>(
+        <div key={a.id} className="bg-gray-950 rounded-xl p-4 border border-gray-800">
+          <div className="flex justify-between mb-2"><div className="text-sm font-bold text-slate-200">Actualización {ymLabel(a.mes)}</div><div className="text-sm font-bold text-green-400">+{((a.factor-1)*100).toFixed(2)}%</div></div>
+          <div className="grid grid-cols-3 gap-2 mb-2">{getIPCLabels(a.mes).map((label,i)=><div key={i} className="bg-gray-900 rounded-lg p-2 text-center border border-gray-800"><div className="text-xs text-gray-600 mb-1">{label}</div><div className="text-sm font-bold text-slate-300">{a.ipc[i]}%</div></div>)}</div>
+          <div className="flex justify-between text-xs text-gray-500"><span>{fARS(a.montoAnterior)} → <span className="text-yellow-300">{fARS(a.montoNuevo)}</span></span><span>{fDate(a.fechaCarga)}</span></div>
+        </div>
+      ))}</div>}
+      {tab==="contratos"&&<TabContratos prop={prop} onUpdate={onUpdate}/>}
+      {tab==="historial"&&<HistorialMontos prop={prop} onUpdate={onUpdate}/>}
+      {prop.notas&&<div className="mt-4 bg-gray-950 rounded-xl p-3 border border-gray-800"><div className={`${lbl} mb-1`}>Notas</div><div className="text-sm text-gray-400">{prop.notas}</div></div>}
+    </Modal>
+  );
+}
+
+// ── TARJETA ───────────────────────────────────────────────────────────────────
+function TarjetaInmueble({prop,settings,alertas,onClick,onEdit,onDelete,onARCA}){
+  const curYM=nowYM();
+  const alerta=alertas.find(a=>a.prop.id===prop.id);
+  const pagoActual=(prop.pagos||[]).find(p=>p.mes===curYM);
+  const L=prop.locador==="1"?settings.locador1||"Locador 1":settings.locador2||"Locador 2";
+  const pendientes=prop.indicesPendientes||{};
+  const teneParciales=prop.proximaActualizacion&&pendientes[prop.proximaActualizacion]&&pendientes[prop.proximaActualizacion].some(v=>v!==null&&v!=="");
+  return(
+    <div className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden hover:border-gray-700 group flex flex-col">
+      {alerta&&<div className={`px-4 py-2 text-xs font-bold ${alerta.tipo==="vencimiento"?"bg-red-950/80 text-red-300":"bg-yellow-950/80 text-yellow-300"}`}>{alerta.tipo==="vencimiento"?`⚠️ Vence en ${alerta.dias} días`:"📊 Cargá los índices IPC"}</div>}
+      {!alerta&&teneParciales&&<div className="px-4 py-2 text-xs font-bold bg-yellow-950/50 text-yellow-500">📊 Índices IPC parciales</div>}
+      <div className="p-4 cursor-pointer flex-1" onClick={onClick}>
+        <div className="flex items-start justify-between gap-2 mb-3">
+          <div className="min-w-0"><div className="font-bold text-slate-100 text-sm">{prop.direccion||"Sin dirección"}</div>{prop.inquilino&&<div className="text-xs text-gray-500 mt-0.5">👤 {prop.inquilino}</div>}</div>
+          <span className={`text-xs px-2 py-1 rounded-full font-bold border whitespace-nowrap shrink-0 ${prop.locador==="1"?"bg-blue-950/80 border-blue-800 text-blue-400":"bg-purple-950/80 border-purple-800 text-purple-400"}`}>{L}</span>
+        </div>
+        <div className="grid grid-cols-2 gap-2 mb-3">
+          <div className="bg-gray-950 rounded-xl p-2.5 border border-gray-800"><div className="text-xs text-gray-600 mb-0.5">Alquiler</div><div className="text-sm font-bold text-yellow-300">{fARS(prop.montoActual)}</div>{prop.montoVigenteDesde&&<div className="text-xs text-gray-600">desde {ymLabel(prop.montoVigenteDesde)}</div>}</div>
+          <div className="bg-gray-950 rounded-xl p-2.5 border border-gray-800"><div className="text-xs text-gray-600 mb-0.5">Este mes</div>{pagoActual?<div className="text-xs font-bold text-green-400">{pagoActual.facturaARCA?"✓ ARCA":"✓ Sin ARCA"}</div>:<div className="text-xs font-bold text-red-400">✗ Pendiente</div>}</div>
+        </div>
+        <div className="space-y-1">
+          {prop.vencimientoContrato&&<div className="text-xs text-gray-600">📅 Vence: <span className="text-gray-400">{fDate(prop.vencimientoContrato)}</span></div>}
+          {prop.proximaActualizacion&&<div className="text-xs text-gray-600">🔄 Actualiz.: <span className="text-gray-400">{ymLabel(prop.proximaActualizacion)}</span></div>}
+        </div>
+      </div>
+      <div className="px-4 pb-3 space-y-2">
+        <button onClick={e=>{e.stopPropagation();onARCA();}} className="w-full text-xs py-1.5 rounded-lg bg-blue-950/50 border border-blue-900/50 text-blue-400 hover:bg-blue-900/50 transition-colors cursor-pointer font-semibold opacity-0 group-hover:opacity-100">
+          🧾 Generar recibo ARCA
+        </button>
+        <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+          <button onClick={e=>{e.stopPropagation();onEdit();}} className="text-xs px-3 py-1.5 rounded-lg bg-gray-950 border border-gray-800 text-gray-500 hover:text-white flex-1 cursor-pointer">✏️ Editar</button>
+          <button onClick={e=>{e.stopPropagation();onDelete();}} className="text-xs px-3 py-1.5 rounded-lg bg-red-950/50 border border-red-900/50 text-red-500 flex-1 cursor-pointer">🗑️ Eliminar</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── CONFIG ────────────────────────────────────────────────────────────────────
+function ModalConfig({settings,onSave,onClose}){
+  const[s,setS]=useState({...DEFAULT_SETTINGS,...settings});
+  return(
+    <Modal title="Configuración" onClose={onClose} wide>
+      <div className="space-y-5">
+        {[["1","Locador 1 (vos)","locador1","cuit1","puntoVenta1"],["2","Locador 2 (esposa)","locador2","cuit2","puntoVenta2"]].map(([k,titulo,kNombre,kCuit,kPv])=>(
+          <div key={k} className={`border rounded-xl p-4 space-y-3 ${k==="1"?"border-blue-900/50":"border-purple-900/50"}`}>
+            <div className={`text-xs font-bold uppercase tracking-widest ${k==="1"?"text-blue-400":"text-purple-400"}`}>{titulo}</div>
+            <div className="grid grid-cols-2 gap-3">
+              <div><label className={lbl}>Nombre</label><input className={inp} value={s[kNombre]||""} onChange={e=>setS(x=>({...x,[kNombre]:e.target.value}))} placeholder="Nombre y apellido"/></div>
+              <div><label className={lbl}>CUIT</label><input className={inp} value={s[kCuit]||""} onChange={e=>setS(x=>({...x,[kCuit]:e.target.value}))} placeholder="XX-XXXXXXXX-X"/></div>
+            </div>
+            <div><label className={lbl}>Punto de venta ARCA</label><input className={inp} value={s[kPv]||""} onChange={e=>setS(x=>({...x,[kPv]:e.target.value}))} placeholder="00001"/></div>
+          </div>
+        ))}
+        <div className="flex gap-3"><button onClick={()=>onSave(s)} className={btnP}>Guardar</button><button onClick={onClose} className={btnG}>Cancelar</button></div>
+      </div>
+    </Modal>
+  );
+}
+
+// ── APP ───────────────────────────────────────────────────────────────────────
+function App(){
+  const[props,setProps]=useState([]);
+  const[settings,setSettings]=useState(DEFAULT_SETTINGS);
+  const[loaded,setLoaded]=useState(false);
+  const[syncing,setSyncing]=useState(false);
+  const[emailStatus,setEmailStatus]=useState(null);
+  const[filtro,setFiltro]=useState("todos");
+  const[modal,setModal]=useState(null);
+
+  useEffect(()=>{
+    const init=async()=>{
+      if(!window.firebaseReady)await new Promise(res=>window.addEventListener("firebaseReady",res,{once:true}));
+      try{
+        const r1=await window.fbGet("props");if(r1)setProps(JSON.parse(r1));
+        const r2=await window.fbGet("settings");if(r2)setSettings(s=>({...DEFAULT_SETTINGS,...JSON.parse(r2)}));
+      }catch(e){console.error(e);}
+      setLoaded(true);
+    };init();
+  },[]);
+
+  useEffect(()=>{
+    if(!loaded)return;
+    const procesarAlertas=async()=>{
+      const alertas=calcAlertas(props);
+      if(!alertas.length)return;
+      let notifPrev=[];
+      try{const r=await window.fbGet("alertasNotif");if(r)notifPrev=JSON.parse(r);}catch{}
+      const nuevas=alertas.filter(a=>!notifPrev.includes(a.id));
+      if(!nuevas.length)return;
+      setEmailStatus("sending");
+      let ok=false;
+      for(const a of nuevas){
+        let titulo,mensaje;
+        if(a.tipo==="vencimiento"){titulo=`⚠️ Vencimiento: ${a.prop.direccion}`;mensaje=`El contrato de "${a.prop.direccion}" vence el ${fDate(a.venc)}, en ${a.dias} días.`;}
+        else{titulo=`📊 Cargar IPC: ${a.prop.direccion}`;mensaje=`Cargar índices IPC-IDECBA para actualización de ${ymLabel(a.mes)} (${getIPCLabels(a.mes).join(", ")}).`;}
+        if(await enviarAlertaEmail(titulo,mensaje))ok=true;
+      }
+      if(ok){await window.fbSet("alertasNotif",JSON.stringify([...notifPrev,...nuevas.map(a=>a.id)]));setEmailStatus("ok");setTimeout(()=>setEmailStatus(null),5000);}
+      else{setEmailStatus("error");setTimeout(()=>setEmailStatus(null),8000);}
+    };
+    procesarAlertas();
+  },[loaded]);
+
+  const saveProps=async(data)=>{setProps(data);setSyncing(true);await window.fbSet("props",JSON.stringify(data));setSyncing(false);};
+  const saveSettings=async(s)=>{setSettings(s);await window.fbSet("settings",JSON.stringify(s));};
+  const handleSaveProp=(p)=>{const exists=props.find(x=>x.id===p.id);saveProps(exists?props.map(x=>x.id===p.id?p:x):[...props,p]);setModal(null);};
+  const handleUpdateProp=(p)=>{saveProps(props.map(x=>x.id===p.id?p:x));setModal(m=>m&&m.tipo==="detalle"?{...m,prop:p}:m);};
+  const handleDelete=(id)=>{if(!confirm("¿Eliminar este inmueble?"))return;saveProps(props.filter(p=>p.id!==id));setModal(null);};
+
+  const alertas=calcAlertas(props);
+  const filtrado=filtro==="todos"?props:props.filter(p=>p.locador===filtro);
+  const curYM=nowYM();
+
+  // Total del mes: suma de lo cobrado + monto vigente de los que aún no pagaron
+  const totalCobradoMes=props.reduce((s,p)=>{
+    const pago=(p.pagos||[]).find(x=>x.mes===curYM);
+    return s+(pago?pago.montoPagado:0);
+  },0);
+  const totalPendienteMes=props.reduce((s,p)=>{
+    const pago=(p.pagos||[]).find(x=>x.mes===curYM);
+    return s+(pago?0:Number(p.montoActual||0));
+  },0);
+  const totalEsperadoMes=totalCobradoMes+totalPendienteMes;
+
+  const cobradosMes=props.filter(p=>(p.pagos||[]).some(x=>x.mes===curYM)).length;
+  const arcaMes=props.filter(p=>(p.pagos||[]).some(x=>x.mes===curYM&&x.facturaARCA)).length;
+  const L1=settings.locador1||"Locador 1",L2=settings.locador2||"Locador 2";
+
+  if(!loaded)return(
+    <div className="min-h-screen bg-gray-950 flex flex-col items-center justify-center gap-3">
+      <div className="text-yellow-300 text-3xl animate-pulse">🔥</div>
+      <div className="text-gray-400 text-sm">Conectando...</div>
+    </div>
+  );
+
+  return(
+    <div className="min-h-screen bg-gray-950" style={{fontFamily:"'DM Sans',sans-serif"}}>
+      <header className="bg-gray-900 border-b border-gray-800 sticky top-0 z-40">
+        <div className="max-w-6xl mx-auto px-5 py-4 flex items-center justify-between gap-4">
+          <div>
+            <h1 className="text-yellow-300 text-lg font-bold leading-none" style={{fontFamily:"'DM Serif Display',serif"}}>Gestión de Alquileres</h1>
+            <p className="text-xs text-gray-600 mt-0.5 flex items-center gap-2">
+              {new Date().toLocaleDateString("es-AR",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}
+              {syncing&&<span className="text-yellow-600 animate-pulse">· guardando...</span>}
+              {!syncing&&<span className="text-green-700">· ☁️ sincronizado</span>}
+              {emailStatus==="sending"&&<span className="text-blue-400 animate-pulse">· ✉️ enviando...</span>}
+              {emailStatus==="ok"&&<span className="text-green-400">· ✉️ alertas enviadas</span>}
+              {emailStatus==="error"&&<span className="text-red-400">· ✉️ error al enviar</span>}
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button onClick={()=>setModal({tipo:"config"})} className="text-xs text-gray-500 hover:text-gray-300 px-3 py-2 rounded-xl border border-gray-800 cursor-pointer">⚙️</button>
+            {props.length<10&&<button onClick={()=>setModal({tipo:"nuevo"})} className="bg-yellow-300 text-gray-950 font-bold text-sm px-4 py-2 rounded-xl hover:bg-yellow-200 cursor-pointer whitespace-nowrap">+ Inmueble</button>}
+          </div>
+        </div>
+      </header>
+
+      <main className="max-w-6xl mx-auto px-5 py-6 space-y-6">
+        {alertas.length>0&&(
+          <div className="space-y-2">
+            <div className="text-xs font-bold text-gray-600 uppercase tracking-widest">Alertas activas</div>
+            {alertas.map((a,i)=>(
+              <div key={i} onClick={()=>setModal({tipo:"detalle",prop:props.find(p=>p.id===a.prop.id)})}
+                className={`flex items-start gap-3 px-4 py-3 rounded-xl border cursor-pointer ${a.tipo==="vencimiento"?"bg-red-950/60 border-red-800/60 text-red-300":"bg-yellow-950/60 border-yellow-800/60 text-yellow-300"}`}>
+                <span className="text-base mt-0.5 shrink-0">{a.tipo==="vencimiento"?"⚠️":"📊"}</span>
+                <span className="text-sm">{a.tipo==="vencimiento"
+                  ?<><strong>{a.prop.direccion}</strong>: vence en <strong>{a.dias} días</strong> ({fDate(a.venc)})</>
+                  :<><strong>{a.prop.direccion}</strong>: cargá IPC para {ymLabel(a.mes)} ({getIPCLabels(a.mes).join(", ")})</>
+                }</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          {[
+            {label:"Inmuebles",val:`${props.length} / 10`,sub:`${props.filter(p=>p.locador==="1").length} ${L1} · ${props.filter(p=>p.locador==="2").length} ${L2}`},
+            {label:`Cobros ${ymLabel(curYM)}`,val:`${cobradosMes} / ${props.length}`,sub:props.length>0?`${Math.round(cobradosMes/props.length*100)}% cobrado`:"–"},
+            {label:"Facturas ARCA",val:`${arcaMes} / ${cobradosMes}`,sub:"del mes actual"},
+            {label:"Total mensual",val:fARS(totalEsperadoMes),sub:`${ymLabel(curYM)}`,gold:true,cobrado:totalCobradoMes>0?fARS(totalCobradoMes):null,falta:totalPendienteMes>0?fARS(totalPendienteMes):null},
+          ].map(s=>(
+            <div key={s.label} className="bg-gray-900 border border-gray-800 rounded-2xl p-4">
+              <div className="text-xs font-bold text-gray-600 uppercase tracking-widest mb-2">{s.label}</div>
+              <div className={`text-xl font-bold leading-none ${s.gold?"text-yellow-300":"text-slate-200"}`}>{s.val}</div>
+              {s.cobrado&&<div className="text-sm font-bold text-green-400 mt-1">{s.cobrado} cobrado</div>}
+              {s.falta&&<div className="text-sm font-bold text-red-400">{s.falta} pendiente</div>}
+              {!s.cobrado&&!s.falta&&<div className="text-xs text-gray-600 mt-1">{s.sub}</div>}
+              {(s.cobrado||s.falta)&&<div className="text-xs text-gray-600 mt-1">{s.sub}</div>}
+            </div>
+          ))}
+        </div>
+
+        {props.length>0&&(
+          <div className="flex gap-1 bg-gray-900 rounded-xl p-1 border border-gray-800 w-fit">
+            {[["todos","Todos",props.length],["1",L1,props.filter(p=>p.locador==="1").length],["2",L2,props.filter(p=>p.locador==="2").length]].map(([k,label,count])=>(
+              <button key={k} onClick={()=>setFiltro(k)} className={`px-3 py-2 rounded-lg text-xs font-bold whitespace-nowrap cursor-pointer ${filtro===k?"bg-gray-800 text-slate-200":"text-gray-600 hover:text-gray-400"}`}>{label} ({count})</button>
+            ))}
+          </div>
+        )}
+
+        {filtrado.length===0?(
+          <div className="text-center py-24"><div className="text-5xl mb-4">🏠</div><div className="text-gray-500 text-sm">{props.length===0?"No hay inmuebles cargados.":"Sin inmuebles para este locador."}</div></div>
+        ):(
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filtrado.map(p=>(
+              <TarjetaInmueble key={p.id} prop={p} settings={settings} alertas={alertas}
+                onClick={()=>setModal({tipo:"detalle",prop:p})}
+                onEdit={()=>setModal({tipo:"editar",prop:p})}
+                onDelete={()=>handleDelete(p.id)}
+                onARCA={()=>setModal({tipo:"arca",prop:p})}/>
+            ))}
+          </div>
+        )}
+      </main>
+
+      {modal&&modal.tipo==="nuevo"&&<Modal title="Nuevo inmueble" onClose={()=>setModal(null)}><FormInmueble settings={settings} onSave={handleSaveProp} onCancel={()=>setModal(null)}/></Modal>}
+      {modal&&modal.tipo==="editar"&&<Modal title="Editar inmueble" onClose={()=>setModal(null)}><FormInmueble initial={modal.prop} settings={settings} onSave={handleSaveProp} onCancel={()=>setModal(null)}/></Modal>}
+      {modal&&modal.tipo==="detalle"&&modal.prop&&<DetalleInmueble prop={props.find(p=>p.id===modal.prop.id)||modal.prop} settings={settings} onUpdate={handleUpdateProp} onClose={()=>setModal(null)}/>}
+      {modal&&modal.tipo==="arca"&&modal.prop&&<ModalARCA prop={props.find(p=>p.id===modal.prop.id)||modal.prop} settings={settings} onClose={()=>setModal(null)}/>}
+      {modal&&modal.tipo==="config"&&<ModalConfig settings={settings} onSave={s=>{saveSettings(s);setModal(null);}} onClose={()=>setModal(null)}/>}
+    </div>
+  );
+}
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>
