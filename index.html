@@ -1242,4 +1242,35 @@ function App(){
         {props.length>0&&(
           <div className="flex gap-1 bg-gray-900 rounded-xl p-1 border border-gray-800 w-fit">
             {[["todos","Todos",props.length],["1",L1,props.filter(p=>p.locador==="1").length],["2",L2,props.filter(p=>p.locador==="2").length]].map(([k,label,count])=>(
-              <button key={k} onClick={()=>setFiltro(k)} className={`px-3 py-2 rounde
+              <button key={k} onClick={()=>setFiltro(k)} className={`px-3 py-2 rounded-lg text-xs font-bold whitespace-nowrap cursor-pointer ${filtro===k?"bg-gray-800 text-slate-200":"text-gray-600 hover:text-gray-400"}`}>{label} ({count})</button>
+            ))}
+          </div>
+        )}
+
+        {filtrado.length===0?(
+          <div className="text-center py-24"><div className="text-5xl mb-4">🏠</div><div className="text-gray-500 text-sm">{props.length===0?"No hay inmuebles cargados.":"Sin inmuebles para este locador."}</div></div>
+        ):(
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filtrado.map(p=>(
+              <TarjetaInmueble key={p.id} prop={p} settings={settings} alertas={alertas}
+                onClick={()=>setModal({tipo:"detalle",prop:p})}
+                onEdit={()=>setModal({tipo:"editar",prop:p})}
+                onDelete={()=>handleDelete(p.id)}
+                onARCA={()=>setModal({tipo:"arca",prop:p})}/>
+            ))}
+          </div>
+        )}
+      </main>
+
+      {modal&&modal.tipo==="nuevo"&&<Modal title="Nuevo inmueble" onClose={()=>setModal(null)}><FormInmueble settings={settings} onSave={handleSaveProp} onCancel={()=>setModal(null)}/></Modal>}
+      {modal&&modal.tipo==="editar"&&<Modal title="Editar inmueble" onClose={()=>setModal(null)}><FormInmueble initial={modal.prop} settings={settings} onSave={handleSaveProp} onCancel={()=>setModal(null)}/></Modal>}
+      {modal&&modal.tipo==="detalle"&&modal.prop&&<DetalleInmueble prop={props.find(p=>p.id===modal.prop.id)||modal.prop} settings={settings} onUpdate={handleUpdateProp} onClose={()=>setModal(null)}/>}
+      {modal&&modal.tipo==="arca"&&modal.prop&&<ModalARCA prop={props.find(p=>p.id===modal.prop.id)||modal.prop} settings={settings} onClose={()=>setModal(null)}/>}
+      {modal&&modal.tipo==="config"&&<ModalConfig settings={settings} onSave={s=>{saveSettings(s);setModal(null);}} onClose={()=>setModal(null)}/>}
+    </div>
+  );
+}
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>
