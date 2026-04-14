@@ -107,7 +107,8 @@ function resetContrato(prop){
   const reset={};
   CAMPOS_CONTRATO.forEach(k=>{
     if(["actualizaciones","pagos"].includes(k))reset[k]=[];
-    else if(k==="indicesPendientes"||k==="historialManual")reset[k]={};
+    else if(k==="indicesPendientes")reset[k]={};
+    else if(k==="historialManual")reset[k]=[];
     else if(k==="diaInicioPeriodo")reset[k]=1;
     else if(k==="diaVencimientoPago")reset[k]=5;
     else if(k==="condicionFiscal1"||k==="condicionFiscal2")reset[k]="Consumidor Final";
@@ -1241,4 +1242,4 @@ function App(){
         {props.length>0&&(
           <div className="flex gap-1 bg-gray-900 rounded-xl p-1 border border-gray-800 w-fit">
             {[["todos","Todos",props.length],["1",L1,props.filter(p=>p.locador==="1").length],["2",L2,props.filter(p=>p.locador==="2").length]].map(([k,label,count])=>(
-              <button key={k} onClick={()=>setFiltro(k)} className={`px-3 py-2 rounded-lg text-xs font-bold w
+              <button key={k} onClick={()=>setFiltro(k)} className={`px-3 py-2 rounde
