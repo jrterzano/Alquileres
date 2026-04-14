@@ -190,7 +190,28 @@ function FormInmueble({initial,settings,onSave,onCancel}){
     if(!f.direccion.trim())return alert("La dirección es obligatoria.");
     if(!f.montoActual||isNaN(Number(f.montoActual)))return alert("El monto vigente es obligatorio.");
     if(!f.proximaActualizacion)return alert("La próxima actualización es obligatoria.");
-    onSave({...f,id:f.id||Date.now(),actualizaciones:f.actualizaciones||[],pagos:f.pagos||[],indicesPendientes:f.indicesPendientes||{}});
+
+    let propFinal={...f,id:f.id||Date.now(),actualizaciones:f.actualizaciones||[],pagos:f.pagos||[],indicesPendientes:f.indicesPendientes||{}};
+
+    // Si el monto cambió y montoVigenteDesde es futuro al mes actual,
+    // guardar el monto anterior en historialManual para poder recuperarlo
+    const montoAnterior=initial?Number(initial.montoActual)||0:0;
+    const montoNuevo=Number(f.montoActual)||0;
+    const montoVigenteDesde=f.montoVigenteDesde||"";
+    if(initial&&montoNuevo!==montoAnterior&&montoVigenteDesde>nowYM()&&montoAnterior>0){
+      const entradaAnterior={
+        id:Date.now()+1,
+        monto:montoAnterior,
+        desde:initial.montoVigenteDesde||initial.inicioContrato||"",
+        nota:"Monto anterior (guardado automáticamente al editar)"
+      };
+      const histExistente=propFinal.historialManual||[];
+      // Solo agregar si no existe ya una entrada con ese mismo monto y desde
+      const yaExiste=histExistente.some(h=>h.monto===montoAnterior&&h.desde===entradaAnterior.desde);
+      if(!yaExiste) propFinal={...propFinal,historialManual:[...histExistente,entradaAnterior]};
+    }
+
+    onSave(propFinal);
   };
   const L1=settings.locador1||"Locador 1",L2=settings.locador2||"Locador 2";
   return(
@@ -431,7 +452,22 @@ function ModalARCA({prop,settings,onClose}){
   }
   const mesLabel=ultimoPago?ymLabel(ultimoPago.mes):"–";
   const fechaComprobante=fDate(fechaComp);
-  const importe=ultimoPago?ultimoPago.montoPagado:Number(prop.montoActual)||0;
+  // Importe: si hay pago registrado usar montoPagado, si no usar el monto del mes correspondiente
+  const montoDelMes=(p,ym)=>{
+    if(p.montoVigenteDesde&&p.montoVigenteDesde>ym){
+      const acts=[...(p.actualizaciones||[])].sort((a,b)=>b.mes.localeCompare(a.mes));
+      const actAnterior=acts.find(a=>a.mes<=ym);
+      if(actAnterior)return actAnterior.montoNuevo;
+      const manual=[...(p.historialManual||[])].sort((a,b)=>(b.desde||"").localeCompare(a.desde||""));
+      const manualAnterior=manual.find(h=>h.desde<=ym);
+      if(manualAnterior)return manualAnterior.monto;
+      const actVieja=acts[acts.length-1];
+      if(actVieja)return actVieja.montoAnterior;
+    }
+    return Number(p.montoActual)||0;
+  };
+  const mesPago=ultimoPago?ultimoPago.mes:nowYM();
+  const importe=ultimoPago?ultimoPago.montoPagado:montoDelMes(prop,mesPago);
 
   // Verificar si hay actualización pendiente
   const actuPendiente=prop.proximaActualizacion&&(prop.actualizaciones||[]).length===0;
@@ -1107,13 +1143,17 @@ function App(){
   // Total del mes: suma de lo cobrado + monto que corresponde al mes actual para los que aún no pagaron
   const montoParaMes=(p,ym)=>{
     // Si montoVigenteDesde está seteado y es posterior al mes consultado,
-    // buscar el monto anterior en el historial de actualizaciones
+    // buscar el monto que correspondía a ese mes
     if(p.montoVigenteDesde&&p.montoVigenteDesde>ym){
+      // 1. Buscar en actualizaciones (ordenadas desc)
       const acts=[...(p.actualizaciones||[])].sort((a,b)=>b.mes.localeCompare(a.mes));
-      // Buscar la última actualización cuyo mes sea <= ym
       const actAnterior=acts.find(a=>a.mes<=ym);
       if(actAnterior) return actAnterior.montoNuevo;
-      // Si no hay ninguna, usar el monto anterior a la primera actualización
+      // 2. Buscar en historialManual
+      const manual=[...(p.historialManual||[])].sort((a,b)=>(b.desde||"").localeCompare(a.desde||""));
+      const manualAnterior=manual.find(h=>h.desde<=ym);
+      if(manualAnterior) return manualAnterior.monto;
+      // 3. Usar montoAnterior de la primera actualización
       const actMasVieja=acts[acts.length-1];
       if(actMasVieja) return actMasVieja.montoAnterior;
     }
@@ -1201,35 +1241,4 @@ function App(){
         {props.length>0&&(
           <div className="flex gap-1 bg-gray-900 rounded-xl p-1 border border-gray-800 w-fit">
             {[["todos","Todos",props.length],["1",L1,props.filter(p=>p.locador==="1").length],["2",L2,props.filter(p=>p.locador==="2").length]].map(([k,label,count])=>(
-              <button key={k} onClick={()=>setFiltro(k)} className={`px-3 py-2 rounded-lg text-xs font-bold whitespace-nowrap cursor-pointer ${filtro===k?"bg-gray-800 text-slate-200":"text-gray-600 hover:text-gray-400"}`}>{label} ({count})</button>
-            ))}
-          </div>
-        )}
-
-        {filtrado.length===0?(
-          <div className="text-center py-24"><div className="text-5xl mb-4">🏠</div><div className="text-gray-500 text-sm">{props.length===0?"No hay inmuebles cargados.":"Sin inmuebles para este locador."}</div></div>
-        ):(
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filtrado.map(p=>(
-              <TarjetaInmueble key={p.id} prop={p} settings={settings} alertas={alertas}
-                onClick={()=>setModal({tipo:"detalle",prop:p})}
-                onEdit={()=>setModal({tipo:"editar",prop:p})}
-                onDelete={()=>handleDelete(p.id)}
-                onARCA={()=>setModal({tipo:"arca",prop:p})}/>
-            ))}
-          </div>
-        )}
-      </main>
-
-      {modal&&modal.tipo==="nuevo"&&<Modal title="Nuevo inmueble" onClose={()=>setModal(null)}><FormInmueble settings={settings} onSave={handleSaveProp} onCancel={()=>setModal(null)}/></Modal>}
-      {modal&&modal.tipo==="editar"&&<Modal title="Editar inmueble" onClose={()=>setModal(null)}><FormInmueble initial={modal.prop} settings={settings} onSave={handleSaveProp} onCancel={()=>setModal(null)}/></Modal>}
-      {modal&&modal.tipo==="detalle"&&modal.prop&&<DetalleInmueble prop={props.find(p=>p.id===modal.prop.id)||modal.prop} settings={settings} onUpdate={handleUpdateProp} onClose={()=>setModal(null)}/>}
-      {modal&&modal.tipo==="arca"&&modal.prop&&<ModalARCA prop={props.find(p=>p.id===modal.prop.id)||modal.prop} settings={settings} onClose={()=>setModal(null)}/>}
-      {modal&&modal.tipo==="config"&&<ModalConfig settings={settings} onSave={s=>{saveSettings(s);setModal(null);}} onClose={()=>setModal(null)}/>}
-    </div>
-  );
-}
-ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
-</script>
-</body>
-</html>
+              <button key={k} onClick={()=>setFiltro(k)} className={`px-3 py-2 rounded-lg text-xs font-bold w
