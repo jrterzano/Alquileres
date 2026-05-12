@@ -324,7 +324,7 @@ function FormInmueble({initial,settings,onSave,onCancel}){
 }
 
 // ── FORM ÍNDICES IPC ──────────────────────────────────────────────────────────
-function FormIndices({prop,onSave,onCancel}){
+function FormIndices({prop,allProps,onSave,onSaveAll,onCancel}){
   const mes=prop.proximaActualizacion||nowYM();
   const labels=getIPCLabels(mes);
   const existing=(prop.indicesPendientes||{})[mes]||[null,null,null];
@@ -336,19 +336,67 @@ function FormIndices({prop,onSave,onCancel}){
   const pct=factor?((factor-1)*100).toFixed(2):null;
   const montoAnt=Number(prop.montoActual)||0;
   const montoNuevo=factor?Math.round(montoAnt*factor):null;
-  const guardarParcial=()=>{const p={...(prop.indicesPendientes||{}),[mes]:nums};onSave({...prop,indicesPendientes:p},false);};
+
+  // Otros inmuebles con la misma próxima actualización
+  const otrosConMismoMes=(allProps||[]).filter(p=>p.id!==prop.id&&p.proximaActualizacion===mes);
+
+  const guardarParcial=()=>{
+    // Guardar en el inmueble actual
+    const propActualizada={...prop,indicesPendientes:{...(prop.indicesPendientes||{}),[mes]:nums}};
+    // Propagar a otros inmuebles con el mismo mes
+    let todosActualizados=null;
+    if(otrosConMismoMes.length>0&&allProps){
+      todosActualizados=(allProps||[]).map(p=>{
+        if(p.id===prop.id)return propActualizada;
+        if(p.proximaActualizacion===mes){
+          const yaExistentes=(p.indicesPendientes||{})[mes]||[null,null,null];
+          // Solo sobreescribir los que el usuario cargó (no null)
+          const merged=nums.map((v,i)=>v!==null?v:yaExistentes[i]);
+          return{...p,indicesPendientes:{...(p.indicesPendientes||{}),[mes]:merged}};
+        }
+        return p;
+      });
+    }
+    if(todosActualizados&&onSaveAll)onSaveAll(todosActualizados,propActualizada,false);
+    else onSave(propActualizada,false);
+  };
+
   const aplicar=()=>{
     if(!allFilled)return alert("Faltan índices.");
+    // Aplicar en el inmueble actual
     const act={id:Date.now(),mes,ipc:nums,factor,montoAnterior:montoAnt,montoNuevo,fechaCarga:todayStr()};
-    const p={...(prop.indicesPendientes||{})};delete p[mes];
-    onSave({...prop,montoActual:montoNuevo,montoVigenteDesde:mes,proximaActualizacion:ymAdd(mes,3),actualizaciones:[...(prop.actualizaciones||[]),act],indicesPendientes:p},true);
+    const pend={...(prop.indicesPendientes||{})};delete pend[mes];
+    const propActualizada={...prop,montoActual:montoNuevo,montoVigenteDesde:mes,proximaActualizacion:ymAdd(mes,3),actualizaciones:[...(prop.actualizaciones||[]),act],indicesPendientes:pend};
+    // Propagar y aplicar a otros inmuebles con el mismo mes
+    let todosActualizados=null;
+    if(otrosConMismoMes.length>0&&allProps){
+      todosActualizados=(allProps||[]).map(p=>{
+        if(p.id===prop.id)return propActualizada;
+        if(p.proximaActualizacion===mes){
+          const mAnt=Number(p.montoActual)||0;
+          const mNuevo=Math.round(mAnt*factor);
+          const actOtro={id:Date.now()+p.id,mes,ipc:nums,factor,montoAnterior:mAnt,montoNuevo:mNuevo,fechaCarga:todayStr()};
+          const pendOtro={...(p.indicesPendientes||{})};delete pendOtro[mes];
+          return{...p,montoActual:mNuevo,montoVigenteDesde:mes,proximaActualizacion:ymAdd(mes,3),actualizaciones:[...(p.actualizaciones||[]),actOtro],indicesPendientes:pendOtro};
+        }
+        return p;
+      });
+    }
+    if(todosActualizados&&onSaveAll)onSaveAll(todosActualizados,propActualizada,true);
+    else onSave(propActualizada,true);
   };
+
   const cargados=nums.filter(v=>v!==null&&!isNaN(v)).length;
   return(
     <div className="space-y-5">
       <div className="bg-gray-950 rounded-xl p-4 border border-gray-800">
         <div className="font-semibold text-slate-200 text-sm">{prop.direccion}</div>
         <div className="text-xs text-gray-500 mt-1">Actualización: <span className="text-yellow-300 font-semibold">{ymLabel(mes)}</span> · Índices: {labels.join(", ")}</div>
+        {otrosConMismoMes.length>0&&(
+          <div className="mt-2 text-xs text-blue-400">
+            📋 Se aplicará también a: {otrosConMismoMes.map(p=>p.direccion).join(", ")}
+          </div>
+        )}
       </div>
       <div>
         <div className="flex items-center justify-between mb-3"><label className={lbl}>IPC-IDECBA (%)</label><span className="text-xs text-gray-600">{cargados}/3</span></div>
@@ -966,7 +1014,7 @@ function PagoItem({pago,prop,onUpdate}){
 }
 
 // ── DETALLE INMUEBLE ──────────────────────────────────────────────────────────
-function DetalleInmueble({prop,settings,onUpdate,onClose}){
+function DetalleInmueble({prop,settings,allProps,onUpdate,onUpdateAll,onClose}){
   const[tab,setTab]=useState("pagos");
   const[sub,setSub]=useState(null);
   const curYM=nowYM();
@@ -975,7 +1023,16 @@ function DetalleInmueble({prop,settings,onUpdate,onClose}){
   const pendientes=prop.indicesPendientes||{};
   const teneParciales=prop.proximaActualizacion&&pendientes[prop.proximaActualizacion]&&pendientes[prop.proximaActualizacion].some(v=>v!==null&&v!=="");
   if(sub==="pago")return<Modal title="Registrar cobro" onClose={()=>setSub(null)}><FormPago prop={prop} onSave={p=>{onUpdate(p);setSub(null);}} onCancel={()=>setSub(null)}/></Modal>;
-  if(sub==="indices")return<Modal title="Cargar índices IPC-IDECBA" onClose={()=>setSub(null)}><FormIndices prop={prop} onSave={(p)=>{onUpdate(p);setSub(null);}} onCancel={()=>setSub(null)}/></Modal>;
+  if(sub==="indices")return(
+    <Modal title="Cargar índices IPC-IDECBA" onClose={()=>setSub(null)}>
+      <FormIndices
+        prop={prop}
+        allProps={allProps}
+        onSave={(p)=>{onUpdate(p);setSub(null);}}
+        onSaveAll={(todos,propActual)=>{onUpdateAll(todos);onUpdate(propActual);setSub(null);}}
+        onCancel={()=>setSub(null)}/>
+    </Modal>
+  );
   if(sub==="arca")return<ModalARCA prop={prop} settings={settings} onClose={()=>setSub(null)}/>;
   const pagosOrdenados=[...(prop.pagos||[])].sort((a,b)=>b.mes.localeCompare(a.mes));
   const actsOrdenadas=[...(prop.actualizaciones||[])].sort((a,b)=>b.mes.localeCompare(a.mes));
@@ -1136,6 +1193,7 @@ function App(){
   const handleSaveProp=(p)=>{const exists=props.find(x=>x.id===p.id);saveProps(exists?props.map(x=>x.id===p.id?p:x):[...props,p]);setModal(null);};
   const handleUpdateProp=(p)=>{saveProps(props.map(x=>x.id===p.id?p:x));setModal(m=>m&&m.tipo==="detalle"?{...m,prop:p}:m);};
   const handleDelete=(id)=>{if(!confirm("¿Eliminar este inmueble?"))return;saveProps(props.filter(p=>p.id!==id));setModal(null);};
+  const handleUpdateAll=(todos)=>{saveProps(todos);};
 
   const alertas=calcAlertas(props);
   const filtrado=filtro==="todos"?props:props.filter(p=>p.locador===filtro);
@@ -1264,7 +1322,7 @@ function App(){
 
       {modal&&modal.tipo==="nuevo"&&<Modal title="Nuevo inmueble" onClose={()=>setModal(null)}><FormInmueble settings={settings} onSave={handleSaveProp} onCancel={()=>setModal(null)}/></Modal>}
       {modal&&modal.tipo==="editar"&&<Modal title="Editar inmueble" onClose={()=>setModal(null)}><FormInmueble initial={modal.prop} settings={settings} onSave={handleSaveProp} onCancel={()=>setModal(null)}/></Modal>}
-      {modal&&modal.tipo==="detalle"&&modal.prop&&<DetalleInmueble prop={props.find(p=>p.id===modal.prop.id)||modal.prop} settings={settings} onUpdate={handleUpdateProp} onClose={()=>setModal(null)}/>}
+      {modal&&modal.tipo==="detalle"&&modal.prop&&<DetalleInmueble prop={props.find(p=>p.id===modal.prop.id)||modal.prop} settings={settings} allProps={props} onUpdate={handleUpdateProp} onUpdateAll={handleUpdateAll} onClose={()=>setModal(null)}/>}
       {modal&&modal.tipo==="arca"&&modal.prop&&<ModalARCA prop={props.find(p=>p.id===modal.prop.id)||modal.prop} settings={settings} onClose={()=>setModal(null)}/>}
       {modal&&modal.tipo==="config"&&<ModalConfig settings={settings} onSave={s=>{saveSettings(s);setModal(null);}} onClose={()=>setModal(null)}/>}
     </div>
