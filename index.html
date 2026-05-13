@@ -343,45 +343,72 @@ function FormIndices({prop,allProps,onSave,onSaveAll,onCancel}){
   const guardarParcial=()=>{
     // Guardar en el inmueble actual
     const propActualizada={...prop,indicesPendientes:{...(prop.indicesPendientes||{}),[mes]:nums}};
-    // Propagar a otros inmuebles con el mismo mes
+
+    // Propagar a otros inmuebles que necesiten alguno de estos mismos meses calendario
+    const mesesCalendario=getIPCMonths(mes); // e.g. ["2026-01","2026-02","2026-03"]
+
     let todosActualizados=null;
-    if(otrosConMismoMes.length>0&&allProps){
+    const otrosPropagables=(allProps||[]).filter(p=>{
+      if(p.id===prop.id||!p.proximaActualizacion)return false;
+      const mesesOtro=getIPCMonths(p.proximaActualizacion);
+      return mesesCalendario.some((mc,i)=>nums[i]!==null&&mesesOtro.includes(mc));
+    });
+
+    if(otrosPropagables.length>0&&allProps){
       todosActualizados=(allProps||[]).map(p=>{
         if(p.id===prop.id)return propActualizada;
-        if(p.proximaActualizacion===mes){
-          const yaExistentes=(p.indicesPendientes||{})[mes]||[null,null,null];
-          // Solo sobreescribir los que el usuario cargó (no null)
-          const merged=nums.map((v,i)=>v!==null?v:yaExistentes[i]);
-          return{...p,indicesPendientes:{...(p.indicesPendientes||{}),[mes]:merged}};
-        }
-        return p;
+        if(!p.proximaActualizacion)return p;
+        const mesesOtro=getIPCMonths(p.proximaActualizacion);
+        const yaExistentes=(p.indicesPendientes||{})[p.proximaActualizacion]||[null,null,null];
+        let cambio=false;
+        const merged=mesesOtro.map((mo,i)=>{
+          const idxEnActual=mesesCalendario.indexOf(mo);
+          if(idxEnActual>=0&&nums[idxEnActual]!==null){cambio=true;return nums[idxEnActual];}
+          return yaExistentes[i];
+        });
+        if(!cambio)return p;
+        return{...p,indicesPendientes:{...(p.indicesPendientes||{}),[p.proximaActualizacion]:merged}};
       });
     }
+
     if(todosActualizados&&onSaveAll)onSaveAll(todosActualizados,propActualizada,false);
     else onSave(propActualizada,false);
   };
 
   const aplicar=()=>{
     if(!allFilled)return alert("Faltan índices.");
-    // Aplicar en el inmueble actual
     const act={id:Date.now(),mes,ipc:nums,factor,montoAnterior:montoAnt,montoNuevo,fechaCarga:todayStr()};
     const pend={...(prop.indicesPendientes||{})};delete pend[mes];
     const propActualizada={...prop,montoActual:montoNuevo,montoVigenteDesde:mes,proximaActualizacion:ymAdd(mes,3),actualizaciones:[...(prop.actualizaciones||[]),act],indicesPendientes:pend};
-    // Propagar y aplicar a otros inmuebles con el mismo mes
+
+    // Propagar por mes calendario y aplicar donde corresponda
+    const mesesCalendario=getIPCMonths(mes);
     let todosActualizados=null;
-    if(otrosConMismoMes.length>0&&allProps){
+    if(allProps){
       todosActualizados=(allProps||[]).map(p=>{
         if(p.id===prop.id)return propActualizada;
-        if(p.proximaActualizacion===mes){
+        if(!p.proximaActualizacion)return p;
+        const mesesOtro=getIPCMonths(p.proximaActualizacion);
+        const yaExistentes=(p.indicesPendientes||{})[p.proximaActualizacion]||[null,null,null];
+        const merged=mesesOtro.map((mo,i)=>{
+          const idxEnActual=mesesCalendario.indexOf(mo);
+          if(idxEnActual>=0&&nums[idxEnActual]!==null)return nums[idxEnActual];
+          return yaExistentes[i];
+        });
+        // Si los 3 índices de este inmueble están completos, aplicar la actualización
+        if(merged.every(v=>v!==null&&!isNaN(v))){
+          const fOtro=(1+merged[0]/100)*(1+merged[1]/100)*(1+merged[2]/100);
           const mAnt=Number(p.montoActual)||0;
-          const mNuevo=Math.round(mAnt*factor);
-          const actOtro={id:Date.now()+p.id,mes,ipc:nums,factor,montoAnterior:mAnt,montoNuevo:mNuevo,fechaCarga:todayStr()};
-          const pendOtro={...(p.indicesPendientes||{})};delete pendOtro[mes];
-          return{...p,montoActual:mNuevo,montoVigenteDesde:mes,proximaActualizacion:ymAdd(mes,3),actualizaciones:[...(p.actualizaciones||[]),actOtro],indicesPendientes:pendOtro};
+          const mNuevo=Math.round(mAnt*fOtro);
+          const actOtro={id:Date.now()+p.id,mes:p.proximaActualizacion,ipc:merged,factor:fOtro,montoAnterior:mAnt,montoNuevo:mNuevo,fechaCarga:todayStr()};
+          const pendOtro={...(p.indicesPendientes||{})};delete pendOtro[p.proximaActualizacion];
+          return{...p,montoActual:mNuevo,montoVigenteDesde:p.proximaActualizacion,proximaActualizacion:ymAdd(p.proximaActualizacion,3),actualizaciones:[...(p.actualizaciones||[]),actOtro],indicesPendientes:pendOtro};
         }
-        return p;
+        // Si no están completos, solo guardar los parciales
+        return{...p,indicesPendientes:{...(p.indicesPendientes||{}),[p.proximaActualizacion]:merged}};
       });
     }
+
     if(todosActualizados&&onSaveAll)onSaveAll(todosActualizados,propActualizada,true);
     else onSave(propActualizada,true);
   };
@@ -1310,25 +1337,4 @@ function App(){
         ):(
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {filtrado.map(p=>(
-              <TarjetaInmueble key={p.id} prop={p} settings={settings} alertas={alertas}
-                onClick={()=>setModal({tipo:"detalle",prop:p})}
-                onEdit={()=>setModal({tipo:"editar",prop:p})}
-                onDelete={()=>handleDelete(p.id)}
-                onARCA={()=>setModal({tipo:"arca",prop:p})}/>
-            ))}
-          </div>
-        )}
-      </main>
-
-      {modal&&modal.tipo==="nuevo"&&<Modal title="Nuevo inmueble" onClose={()=>setModal(null)}><FormInmueble settings={settings} onSave={handleSaveProp} onCancel={()=>setModal(null)}/></Modal>}
-      {modal&&modal.tipo==="editar"&&<Modal title="Editar inmueble" onClose={()=>setModal(null)}><FormInmueble initial={modal.prop} settings={settings} onSave={handleSaveProp} onCancel={()=>setModal(null)}/></Modal>}
-      {modal&&modal.tipo==="detalle"&&modal.prop&&<DetalleInmueble prop={props.find(p=>p.id===modal.prop.id)||modal.prop} settings={settings} allProps={props} onUpdate={handleUpdateProp} onUpdateAll={handleUpdateAll} onClose={()=>setModal(null)}/>}
-      {modal&&modal.tipo==="arca"&&modal.prop&&<ModalARCA prop={props.find(p=>p.id===modal.prop.id)||modal.prop} settings={settings} onClose={()=>setModal(null)}/>}
-      {modal&&modal.tipo==="config"&&<ModalConfig settings={settings} onSave={s=>{saveSettings(s);setModal(null);}} onClose={()=>setModal(null)}/>}
-    </div>
-  );
-}
-ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
-</script>
-</body>
-</html>
+              <TarjetaIn
