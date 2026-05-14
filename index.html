@@ -1060,7 +1060,7 @@ function DetalleInmueble({prop,settings,allProps,onUpdate,onUpdateAll,onClose}){
         prop={prop}
         allProps={allProps}
         onSave={(p)=>{onUpdate(p);setSub(null);}}
-        onSaveAll={(todos,propActual)=>{onUpdateAll(todos);onUpdate(propActual);setSub(null);}}
+        onSaveAll={(todos)=>{onUpdateAll(todos);setSub(null);}}
         onCancel={()=>setSub(null)}/>
     </Modal>
   );
@@ -1224,7 +1224,17 @@ function App(){
   const handleSaveProp=(p)=>{const exists=props.find(x=>x.id===p.id);saveProps(exists?props.map(x=>x.id===p.id?p:x):[...props,p]);setModal(null);};
   const handleUpdateProp=(p)=>{saveProps(props.map(x=>x.id===p.id?p:x));setModal(m=>m&&m.tipo==="detalle"?{...m,prop:p}:m);};
   const handleDelete=(id)=>{if(!confirm("¿Eliminar este inmueble?"))return;saveProps(props.filter(p=>p.id!==id));setModal(null);};
-  const handleUpdateAll=(todos)=>{saveProps(todos);};
+  const handleUpdateAll=(todos)=>{
+    saveProps(todos);
+    // Actualizar el prop del modal si está abierto
+    setModal(m=>{
+      if(m&&m.tipo==="detalle"&&m.prop){
+        const propActualizado=todos.find(p=>p.id===m.prop.id);
+        if(propActualizado)return{...m,prop:propActualizado};
+      }
+      return m;
+    });
+  };
 
   const alertas=calcAlertas(props);
   const filtrado=filtro==="todos"?props:props.filter(p=>p.locador===filtro);
@@ -1355,11 +1365,4 @@ function App(){
       {modal&&modal.tipo==="editar"&&<Modal title="Editar inmueble" onClose={()=>setModal(null)}><FormInmueble initial={modal.prop} settings={settings} onSave={handleSaveProp} onCancel={()=>setModal(null)}/></Modal>}
       {modal&&modal.tipo==="detalle"&&modal.prop&&<DetalleInmueble prop={props.find(p=>p.id===modal.prop.id)||modal.prop} settings={settings} allProps={props} onUpdate={handleUpdateProp} onUpdateAll={handleUpdateAll} onClose={()=>setModal(null)}/>}
       {modal&&modal.tipo==="arca"&&modal.prop&&<ModalARCA prop={props.find(p=>p.id===modal.prop.id)||modal.prop} settings={settings} onClose={()=>setModal(null)}/>}
-      {modal&&modal.tipo==="config"&&<ModalConfig settings={settings} onSave={s=>{saveSettings(s);setModal(null);}} onClose={()=>setModal(null)}/>}
-    </div>
-  );
-}
-ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
-</script>
-</body>
-</html>
+      {modal&&mod
