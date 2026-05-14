@@ -68,12 +68,16 @@ function fARS(v){if(!v&&v!==0)return"–";return new Intl.NumberFormat("es-AR",{
 const nowYM=()=>{const t=new Date();return makeYM(t.getFullYear(),t.getMonth()+1);};
 const todayStr=()=>{const t=new Date();return`${t.getFullYear()}-${pad(t.getMonth()+1)}-${pad(t.getDate())}`;};
 
-function getIPCLabels(updateYM){
+function getIPCMonths(updateYM){
   return[4,3,2].map(offset=>{
     const[y,m]=updateYM.split("-").map(Number);
     const d=new Date(y,m-1-offset,1);
-    return`${MESES[d.getMonth()]} ${d.getFullYear()}`;
+    return makeYM(d.getFullYear(),d.getMonth()+1);
   });
+}
+
+function getIPCLabels(updateYM){
+  return getIPCMonths(updateYM).map(ym=>ymLabel(ym));
 }
 
 // Calcular período del servicio según inicio de contrato y mes de pago
@@ -1337,4 +1341,25 @@ function App(){
         ):(
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {filtrado.map(p=>(
-              <TarjetaIn
+              <TarjetaInmueble key={p.id} prop={p} settings={settings} alertas={alertas}
+                onClick={()=>setModal({tipo:"detalle",prop:p})}
+                onEdit={()=>setModal({tipo:"editar",prop:p})}
+                onDelete={()=>handleDelete(p.id)}
+                onARCA={()=>setModal({tipo:"arca",prop:p})}/>
+            ))}
+          </div>
+        )}
+      </main>
+
+      {modal&&modal.tipo==="nuevo"&&<Modal title="Nuevo inmueble" onClose={()=>setModal(null)}><FormInmueble settings={settings} onSave={handleSaveProp} onCancel={()=>setModal(null)}/></Modal>}
+      {modal&&modal.tipo==="editar"&&<Modal title="Editar inmueble" onClose={()=>setModal(null)}><FormInmueble initial={modal.prop} settings={settings} onSave={handleSaveProp} onCancel={()=>setModal(null)}/></Modal>}
+      {modal&&modal.tipo==="detalle"&&modal.prop&&<DetalleInmueble prop={props.find(p=>p.id===modal.prop.id)||modal.prop} settings={settings} allProps={props} onUpdate={handleUpdateProp} onUpdateAll={handleUpdateAll} onClose={()=>setModal(null)}/>}
+      {modal&&modal.tipo==="arca"&&modal.prop&&<ModalARCA prop={props.find(p=>p.id===modal.prop.id)||modal.prop} settings={settings} onClose={()=>setModal(null)}/>}
+      {modal&&modal.tipo==="config"&&<ModalConfig settings={settings} onSave={s=>{saveSettings(s);setModal(null);}} onClose={()=>setModal(null)}/>}
+    </div>
+  );
+}
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>
