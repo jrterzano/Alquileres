@@ -20,7 +20,7 @@
       } catch(e) { return false; }
     };
   </script>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Serif+Display&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Outfit:wght@700;800&display=swap" rel="stylesheet"/>
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
     import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
@@ -39,10 +39,34 @@
     window.dispatchEvent(new Event("firebaseReady"));
   </script>
   <style>
-    *{box-sizing:border-box;}body{margin:0;font-family:'DM Sans',sans-serif;background:#060a14;}
+    *{box-sizing:border-box;}
+    body{margin:0;font-family:'Inter',sans-serif;background:#04080f;color:#e2eaf6;-webkit-font-smoothing:antialiased;}
     input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;}
-    ::-webkit-scrollbar{width:6px;}::-webkit-scrollbar-track{background:#0a0e1c;}
-    ::-webkit-scrollbar-thumb{background:#2e3858;border-radius:3px;}
+    ::-webkit-scrollbar{width:5px;}
+    ::-webkit-scrollbar-track{background:transparent;}
+    ::-webkit-scrollbar-thumb{background:#1e2a45;border-radius:10px;}
+    ::-webkit-scrollbar-thumb:hover{background:#2e3a5a;}
+    
+    /* Glassmorphism cards */
+    .glass{background:rgba(13,18,35,0.8);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);}
+    .glass-light{background:rgba(20,28,50,0.6);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);}
+    
+    /* Gradient text */
+    .gradient-text{background:linear-gradient(135deg,#818cf8,#c084fc);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+    
+    /* Glow effects */
+    .glow-indigo{box-shadow:0 0 20px rgba(99,102,241,0.15);}
+    .glow-amber{box-shadow:0 0 20px rgba(245,158,11,0.15);}
+    
+    /* Smooth transitions */
+    button,input,select,textarea{transition:all 0.2s ease;}
+    
+    /* Card hover */
+    .card-hover:hover{transform:translateY(-1px);transition:transform 0.2s ease;}
+    
+    /* Background pattern */
+    body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse at 20% 20%,rgba(99,102,241,0.05) 0%,transparent 50%),radial-gradient(ellipse at 80% 80%,rgba(168,85,247,0.05) 0%,transparent 50%);pointer-events:none;z-index:0;}
+    #root{position:relative;z-index:1;}
   </style>
 </head>
 <body>
@@ -240,10 +264,10 @@ const DEFAULT_SETTINGS = {
 };
 
 // ── ESTILOS ───────────────────────────────────────────────────────────────────
-const inp = "w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2.5 text-slate-200 text-sm focus:outline-none focus:border-yellow-600 transition-colors placeholder-gray-700";
-const lbl = "block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-widest";
-const btnP = "flex-1 bg-yellow-300 text-gray-950 font-bold py-2.5 rounded-xl text-sm hover:bg-yellow-200 transition-colors cursor-pointer";
-const btnG = "px-5 py-2.5 border border-gray-800 text-gray-500 rounded-xl text-sm hover:border-gray-600 hover:text-gray-300 transition-colors cursor-pointer";
+const inp = "w-full bg-[#060a15]/80 border border-[#1e2a45] rounded-xl px-3 py-2.5 text-[#e2eaf6] text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 transition-all duration-200 placeholder-[#2a3a55] backdrop-blur-sm";
+const lbl = "block text-[10px] font-semibold text-[#4a6888] mb-1.5 uppercase tracking-widest letter-spacing-wider";
+const btnP = "flex-1 bg-gradient-to-r from-indigo-500 to-violet-500 text-white font-semibold py-2.5 rounded-xl text-sm hover:from-indigo-400 hover:to-violet-400 transition-all duration-200 cursor-pointer shadow-lg shadow-indigo-500/20";
+const btnG = "px-5 py-2.5 border border-[#1e2a45] text-[#5a7090] rounded-xl text-sm hover:border-indigo-700/50 hover:text-[#a0b4cc] transition-all duration-200 cursor-pointer backdrop-blur-sm";
 
 // ── MODAL ─────────────────────────────────────────────────────────────────────
 function Modal({
@@ -258,17 +282,18 @@ function Modal({
       if (e.target === e.currentTarget) onClose();
     }
   }, /*#__PURE__*/React.createElement("div", {
-    className: `bg-gray-900 border border-gray-800 rounded-2xl shadow-2xl w-full ${wide ? "max-w-2xl" : "max-w-md"} overflow-y-auto`,
+    className: `glass border border-[#1e2a45] rounded-2xl shadow-2xl w-full ${wide ? "max-w-2xl" : "max-w-md"} overflow-y-auto glow-indigo`,
     style: {
-      maxHeight: "92vh"
+      maxHeight: "92vh",
+      borderColor: 'rgba(99,102,241,0.2)'
     }
   }, /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center justify-between px-6 py-4 border-b border-gray-800"
+    className: "flex items-center justify-between px-6 py-4 border-b border-[#1e2a45]/60"
   }, /*#__PURE__*/React.createElement("h2", {
-    className: "font-bold text-yellow-300 text-sm tracking-wide"
+    className: "font-semibold gradient-text text-sm tracking-wide"
   }, title), /*#__PURE__*/React.createElement("button", {
     onClick: onClose,
-    className: "w-8 h-8 flex items-center justify-center rounded-lg text-gray-500 hover:text-white hover:bg-white/10 text-xl leading-none cursor-pointer"
+    className: "w-8 h-8 flex items-center justify-center rounded-lg text-[#5a7090] hover:text-white hover:bg-white/10 text-xl leading-none cursor-pointer"
   }, "×")), /*#__PURE__*/React.createElement("div", {
     className: "p-6"
   }, children)));
@@ -331,7 +356,7 @@ function FormInmueble({
   }, [["1", L1], ["2", L2]].map(([k, name]) => /*#__PURE__*/React.createElement("button", {
     key: k,
     onClick: () => set("locador", k),
-    className: `py-2.5 rounded-xl text-sm font-bold border transition-all cursor-pointer ${f.locador === k ? k === "1" ? "bg-blue-900/60 border-blue-500 text-blue-200" : "bg-purple-900/60 border-purple-500 text-purple-200" : "bg-transparent border-gray-800 text-gray-500"}`
+    className: `py-2.5 rounded-xl text-sm font-bold border transition-all cursor-pointer ${f.locador === k ? k === "1" ? "bg-indigo-900/50 border-blue-500 text-indigo-200" : "bg-violet-900/50 border-purple-500 text-violet-200" : "bg-transparent border-[#1e2a45] text-[#5a7090]"}`
   }, name)))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
     className: lbl
   }, "Dirección *"), /*#__PURE__*/React.createElement("input", {
@@ -340,9 +365,9 @@ function FormInmueble({
     onChange: e => set("direccion", e.target.value),
     placeholder: "Av. Corrientes 1234, CABA"
   })), /*#__PURE__*/React.createElement("div", {
-    className: "border border-gray-800 rounded-xl p-3 space-y-3"
+    className: "border border-[#1e2a45] rounded-xl p-3 space-y-3"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "text-xs font-bold text-gray-500 uppercase tracking-widest"
+    className: "text-xs font-bold text-[#5a7090] uppercase tracking-widest"
   }, "Inquilino 1"), /*#__PURE__*/React.createElement("div", {
     className: "grid grid-cols-2 gap-3"
   }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
@@ -400,9 +425,9 @@ function FormInmueble({
     onChange: e => set("formaPago", e.target.value),
     placeholder: "Transferencia, efectivo..."
   })))), /*#__PURE__*/React.createElement("div", {
-    className: "border border-gray-800 rounded-xl p-3 space-y-3"
+    className: "border border-[#1e2a45] rounded-xl p-3 space-y-3"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "text-xs font-bold text-gray-500 uppercase tracking-widest"
+    className: "text-xs font-bold text-[#5a7090] uppercase tracking-widest"
   }, "Inquilino 2 ", /*#__PURE__*/React.createElement("span", {
     className: "text-gray-700 normal-case font-normal"
   }, "(opcional)")), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
@@ -478,7 +503,7 @@ function FormInmueble({
     value: f.montoVigenteDesde || "",
     onChange: e => set("montoVigenteDesde", e.target.value)
   }), f.montoVigenteDesde && f.proximaActualizacion && ymAdd(f.montoVigenteDesde, 3) !== f.proximaActualizacion && /*#__PURE__*/React.createElement("div", {
-    className: "text-xs text-yellow-500 mt-1"
+    className: "text-xs text-amber-400 mt-1"
   }, "⚠️ El mes de actualización debería ser ", ymLabel(ymAdd(f.montoVigenteDesde, 3)), " (3 meses desde el inicio de vigencia)")), /*#__PURE__*/React.createElement("div", {
     className: "grid grid-cols-2 gap-3"
   }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
@@ -512,7 +537,7 @@ function FormInmueble({
     onChange: e => set("diaInicioPeriodo", Number(e.target.value)),
     placeholder: "1"
   }), /*#__PURE__*/React.createElement("div", {
-    className: "text-xs text-gray-600 mt-1"
+    className: "text-xs text-[#4a6080] mt-1"
   }, "Por defecto: 1 (hasta fin de mes)")), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
     className: lbl
   }, "Día vencimiento del pago"), /*#__PURE__*/React.createElement("input", {
@@ -524,7 +549,7 @@ function FormInmueble({
     onChange: e => set("diaVencimientoPago", Number(e.target.value)),
     placeholder: "5"
   }), /*#__PURE__*/React.createElement("div", {
-    className: "text-xs text-gray-600 mt-1"
+    className: "text-xs text-[#4a6080] mt-1"
   }, "Por defecto: 5 de cada mes"))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
     className: lbl
   }, "Notas"), /*#__PURE__*/React.createElement("textarea", {
@@ -695,66 +720,66 @@ function FormIndices({
   return /*#__PURE__*/React.createElement("div", {
     className: "space-y-5"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "bg-gray-950 rounded-xl p-4 border border-gray-800"
+    className: "bg-[#060a15]/70 rounded-xl p-4 border border-[#1e2a45]"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "font-semibold text-slate-200 text-sm"
+    className: "font-semibold text-[#e2eaf6] text-sm"
   }, prop.direccion), /*#__PURE__*/React.createElement("div", {
-    className: "text-xs text-gray-500 mt-1"
+    className: "text-xs text-[#5a7090] mt-1"
   }, "Actualización: ", /*#__PURE__*/React.createElement("span", {
-    className: "text-yellow-300 font-semibold"
+    className: "text-amber-300 font-semibold"
   }, ymLabel(mes)), " · Índices: ", labels.join(", ")), otrosConMismoMes.length > 0 && /*#__PURE__*/React.createElement("div", {
-    className: "mt-2 text-xs text-blue-400"
+    className: "mt-2 text-xs text-indigo-400"
   }, "📋 Se aplicará también a: ", otrosConMismoMes.map(p => p.direccion).join(", "))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     className: "flex items-center justify-between mb-3"
   }, /*#__PURE__*/React.createElement("label", {
     className: lbl
   }, "IPC-IDECBA (%)"), /*#__PURE__*/React.createElement("span", {
-    className: "text-xs text-gray-600"
+    className: "text-xs text-[#4a6080]"
   }, cargados, "/3")), /*#__PURE__*/React.createElement("div", {
     className: "grid grid-cols-3 gap-3"
   }, labels.map((label, i) => /*#__PURE__*/React.createElement("div", {
     key: i,
     className: "text-center"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "text-xs text-gray-500 mb-2"
+    className: "text-xs text-[#5a7090] mb-2"
   }, label), /*#__PURE__*/React.createElement("input", {
-    className: `w-full bg-gray-950 border ${vals[i] ? "border-yellow-600/60" : "border-gray-700"} rounded-xl px-2 py-3 text-slate-200 text-lg font-bold text-center focus:outline-none focus:border-yellow-500`,
+    className: `w-full bg-[#070b14] border ${vals[i] ? "border-amber-500/50" : "border-[#253350]"} rounded-xl px-2 py-3 text-[#e2eaf6] text-lg font-bold text-center focus:outline-none focus:border-indigo-500`,
     type: "number",
     step: "0.01",
     value: vals[i],
     onChange: e => setV(i, e.target.value),
     placeholder: "–"
   }))))), allFilled && factor && /*#__PURE__*/React.createElement("div", {
-    className: "bg-green-950/60 border border-green-800/50 rounded-xl p-4 space-y-2"
+    className: "bg-emerald-950/40 border border-emerald-700/40 rounded-xl p-4 space-y-2"
   }, /*#__PURE__*/React.createElement("div", {
     className: "flex justify-between text-sm"
   }, /*#__PURE__*/React.createElement("span", {
-    className: "text-gray-400"
+    className: "text-[#7a90aa]"
   }, "Variación acumulada"), /*#__PURE__*/React.createElement("span", {
-    className: "font-bold text-green-400"
+    className: "font-bold text-emerald-400"
   }, "+", pct, "%")), /*#__PURE__*/React.createElement("div", {
     className: "h-px bg-green-800/30"
   }), /*#__PURE__*/React.createElement("div", {
     className: "flex justify-between text-sm"
   }, /*#__PURE__*/React.createElement("span", {
-    className: "text-gray-400"
+    className: "text-[#7a90aa]"
   }, "Monto anterior"), /*#__PURE__*/React.createElement("span", {
-    className: "text-gray-300"
+    className: "text-[#a0b4cc]"
   }, fARS(montoAnt))), /*#__PURE__*/React.createElement("div", {
     className: "flex justify-between text-sm"
   }, /*#__PURE__*/React.createElement("span", {
-    className: "text-gray-400"
+    className: "text-[#7a90aa]"
   }, "Monto nuevo"), /*#__PURE__*/React.createElement("span", {
-    className: "text-yellow-300 font-bold"
+    className: "text-amber-300 font-bold"
   }, fARS(montoNuevo))), /*#__PURE__*/React.createElement("div", {
-    className: "flex justify-between text-xs text-gray-500"
+    className: "flex justify-between text-xs text-[#5a7090]"
   }, /*#__PURE__*/React.createElement("span", null, "Próxima actualización"), /*#__PURE__*/React.createElement("span", null, ymLabel(ymAdd(mes, 3))))), !allFilled && cargados > 0 && /*#__PURE__*/React.createElement("div", {
-    className: "bg-yellow-950/40 border border-yellow-800/40 rounded-xl p-3 text-xs text-yellow-400"
+    className: "bg-amber-950/40 border border-amber-700/40 rounded-xl p-3 text-xs text-amber-400"
   }, "Podés guardar parcial y completar cuando estén disponibles."), /*#__PURE__*/React.createElement("div", {
     className: "flex gap-2"
   }, !allFilled && cargados > 0 && /*#__PURE__*/React.createElement("button", {
     onClick: guardarParcial,
-    className: "flex-1 border border-yellow-700/50 text-yellow-400 font-bold py-2.5 rounded-xl text-sm cursor-pointer"
+    className: "flex-1 border border-amber-600/40 text-amber-400 font-bold py-2.5 rounded-xl text-sm cursor-pointer"
   }, "💾 Guardar parcial"), allFilled && /*#__PURE__*/React.createElement("button", {
     onClick: aplicar,
     className: btnP
@@ -798,13 +823,13 @@ function FormPago({
   return /*#__PURE__*/React.createElement("div", {
     className: "space-y-4"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "bg-gray-950 rounded-xl p-4 border border-gray-800"
+    className: "bg-[#060a15]/70 rounded-xl p-4 border border-[#1e2a45]"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "font-semibold text-slate-200 text-sm"
+    className: "font-semibold text-[#e2eaf6] text-sm"
   }, prop.direccion), /*#__PURE__*/React.createElement("div", {
-    className: "text-xs text-gray-500 mt-0.5"
+    className: "text-xs text-[#5a7090] mt-0.5"
   }, "Monto vigente: ", /*#__PURE__*/React.createElement("span", {
-    className: "text-yellow-300"
+    className: "text-amber-300"
   }, fARS(prop.montoActual)))), /*#__PURE__*/React.createElement("div", {
     className: "grid grid-cols-2 gap-3"
   }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
@@ -815,7 +840,7 @@ function FormPago({
     value: mes,
     onChange: e => setMes(e.target.value)
   }), yaExiste && /*#__PURE__*/React.createElement("div", {
-    className: "text-xs text-yellow-500 mt-1"
+    className: "text-xs text-amber-400 mt-1"
   }, "⚠️ Ya hay un pago")), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
     className: lbl
   }, "Fecha de cobro"), /*#__PURE__*/React.createElement("input", {
@@ -831,20 +856,20 @@ function FormPago({
     value: monto,
     onChange: e => setMonto(e.target.value)
   })), /*#__PURE__*/React.createElement("div", {
-    className: "border border-gray-800 rounded-xl overflow-hidden"
+    className: "border border-[#1e2a45] rounded-xl overflow-hidden"
   }, /*#__PURE__*/React.createElement("div", {
     className: "flex items-center gap-3 p-4 cursor-pointer hover:bg-white/5",
     onClick: () => setArca(v => !v)
   }, /*#__PURE__*/React.createElement("div", {
-    className: `w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 ${arca ? "bg-yellow-300 border-yellow-300" : "border-gray-600"}`
+    className: `w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 ${arca ? "bg-gradient-to-r from-amber-400 to-yellow-300 border-amber-400" : "border-[#2e4060]"}`
   }, arca && /*#__PURE__*/React.createElement("span", {
     className: "text-gray-950 text-xs font-black"
   }, "✓")), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
-    className: "text-sm font-semibold text-slate-200"
+    className: "text-sm font-semibold text-[#e2eaf6]"
   }, "Factura ARCA emitida"), /*#__PURE__*/React.createElement("div", {
-    className: "text-xs text-gray-500"
+    className: "text-xs text-[#5a7090]"
   }, "Marcar una vez generada en ARCA"))), arca && /*#__PURE__*/React.createElement("div", {
-    className: "px-4 pb-4 border-t border-gray-800 pt-3"
+    className: "px-4 pb-4 border-t border-[#1e2a45] pt-3"
   }, /*#__PURE__*/React.createElement("label", {
     className: lbl
   }, "N° comprobante / referencia"), /*#__PURE__*/React.createElement("input", {
@@ -961,8 +986,7 @@ Fecha: ${fechaComprobante}
 RECEPTOR
 ${receptor.tipo}: ${receptor.num}
 Nombre: ${receptor.nombre}
-Condición fiscal: ${receptor.condicion}${(prop.emailInquilino || "").trim() ? `
-Email: ${prop.emailInquilino}` : ""}
+Condición fiscal: ${receptor.condicion}${(prop.emailInquilino || "").trim() ? `\nEmail: ${prop.emailInquilino}` : ""}
 
 PERÍODO DEL SERVICIO
 Desde: ${periodo.desde}
@@ -982,18 +1006,18 @@ En USD: ${prop.montoUSD} · Cotización BNA vendedor: $${prop.cotizacionUSD} · 
     valor,
     advertencia
   }) => /*#__PURE__*/React.createElement("div", {
-    className: "bg-gray-950 rounded-xl p-3 border border-gray-800"
+    className: "bg-[#060a15]/70 rounded-xl p-3 border border-[#1e2a45]"
   }, /*#__PURE__*/React.createElement("div", {
     className: "flex items-center justify-between mb-1"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "text-xs font-bold text-gray-500 uppercase tracking-widest"
+    className: "text-xs font-bold text-[#5a7090] uppercase tracking-widest"
   }, label), /*#__PURE__*/React.createElement("button", {
     onClick: () => copiar(valor),
-    className: "text-xs px-2 py-1 rounded-lg bg-gray-800 text-gray-400 hover:text-white transition-colors cursor-pointer"
+    className: "text-xs px-2 py-1 rounded-lg bg-gray-800 text-[#7a90aa] hover:text-white transition-colors cursor-pointer"
   }, "📋 Copiar")), /*#__PURE__*/React.createElement("div", {
-    className: "text-sm font-semibold text-slate-200"
+    className: "text-sm font-semibold text-[#e2eaf6]"
   }, valor), advertencia && /*#__PURE__*/React.createElement("div", {
-    className: "text-xs text-yellow-500 mt-1"
+    className: "text-xs text-amber-400 mt-1"
   }, "⚠️ ", advertencia));
   if (tiene2 && !inquilinoSel) return /*#__PURE__*/React.createElement(Modal, {
     title: "¿Quién pagó este mes?",
@@ -1001,15 +1025,15 @@ En USD: ${prop.montoUSD} · Cotización BNA vendedor: $${prop.cotizacionUSD} · 
   }, /*#__PURE__*/React.createElement("div", {
     className: "space-y-3"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "text-xs text-gray-500 mb-4"
+    className: "text-xs text-[#5a7090] mb-4"
   }, "Hay dos inquilinos en este inmueble. Seleccioná quién realizó el pago para generar el recibo."), [["1", prop.inquilino, prop.tipoDoc1, prop.docNum1], ["2", prop.inquilino2, prop.tipoDoc2, prop.docNum2]].map(([k, nombre, tipo, num]) => /*#__PURE__*/React.createElement("button", {
     key: k,
     onClick: () => setInquilinoSel(k),
-    className: "w-full bg-gray-950 border border-gray-800 hover:border-yellow-600 rounded-xl p-4 text-left transition-colors cursor-pointer"
+    className: "w-full bg-[#070b14] border border-[#1e2a45] hover:border-yellow-600 rounded-xl p-4 text-left transition-colors cursor-pointer"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "font-semibold text-slate-200 text-sm"
+    className: "font-semibold text-[#e2eaf6] text-sm"
   }, nombre || "Sin nombre"), /*#__PURE__*/React.createElement("div", {
-    className: "text-xs text-gray-500 mt-0.5"
+    className: "text-xs text-[#5a7090] mt-0.5"
   }, tipo, ": ", num || "–"))), /*#__PURE__*/React.createElement("button", {
     onClick: onClose,
     className: `w-full mt-2 ${btnG}`
@@ -1021,112 +1045,112 @@ En USD: ${prop.montoUSD} · Cotización BNA vendedor: $${prop.cotizacionUSD} · 
   }, /*#__PURE__*/React.createElement("div", {
     className: "space-y-3"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "bg-blue-950/40 border border-blue-800/40 rounded-xl px-4 py-3 text-xs text-blue-300"
+    className: "bg-indigo-950/50 border border-indigo-700/40 rounded-xl px-4 py-3 text-xs text-indigo-300"
   }, "Tipo de comprobante: ", /*#__PURE__*/React.createElement("strong", null, "Recibo C"), " · Concepto: ", /*#__PURE__*/React.createElement("strong", null, "Servicios (código 2)")), /*#__PURE__*/React.createElement("div", {
-    className: "bg-gray-950 rounded-xl p-3 border border-gray-800"
+    className: "bg-[#060a15]/70 rounded-xl p-3 border border-[#1e2a45]"
   }, /*#__PURE__*/React.createElement("div", {
     className: "flex items-center justify-between mb-1"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "text-xs font-bold text-gray-500 uppercase tracking-widest"
+    className: "text-xs font-bold text-[#5a7090] uppercase tracking-widest"
   }, "Emisor"), /*#__PURE__*/React.createElement("button", {
     onClick: () => copiar(`${nombreLoc} — CUIT: ${cuitLoc} — Pto. venta: ${puntoVenta}`),
-    className: "text-xs px-2 py-1 rounded-lg bg-gray-800 text-gray-400 hover:text-white cursor-pointer"
+    className: "text-xs px-2 py-1 rounded-lg bg-gray-800 text-[#7a90aa] hover:text-white cursor-pointer"
   }, "📋 Copiar")), /*#__PURE__*/React.createElement("div", {
-    className: "text-sm font-semibold text-slate-200"
+    className: "text-sm font-semibold text-[#e2eaf6]"
   }, nombreLoc), /*#__PURE__*/React.createElement("div", {
-    className: "text-xs text-gray-400 mt-0.5"
+    className: "text-xs text-[#7a90aa] mt-0.5"
   }, "CUIT: ", cuitLoc, " · Pto. de venta: ", puntoVenta)), /*#__PURE__*/React.createElement("div", {
-    className: "bg-gray-950 rounded-xl p-3 border border-gray-800"
+    className: "bg-[#060a15]/70 rounded-xl p-3 border border-[#1e2a45]"
   }, /*#__PURE__*/React.createElement("div", {
     className: "flex items-center justify-between mb-1"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "text-xs font-bold text-gray-500 uppercase tracking-widest"
+    className: "text-xs font-bold text-[#5a7090] uppercase tracking-widest"
   }, "Receptor"), /*#__PURE__*/React.createElement("button", {
     onClick: () => copiar(`${receptor.tipo}: ${receptor.num} — ${receptor.nombre}`),
-    className: "text-xs px-2 py-1 rounded-lg bg-gray-800 text-gray-400 hover:text-white cursor-pointer"
+    className: "text-xs px-2 py-1 rounded-lg bg-gray-800 text-[#7a90aa] hover:text-white cursor-pointer"
   }, "📋 Copiar")), /*#__PURE__*/React.createElement("div", {
-    className: "text-sm font-semibold text-slate-200"
+    className: "text-sm font-semibold text-[#e2eaf6]"
   }, receptor.nombre), /*#__PURE__*/React.createElement("div", {
-    className: "text-xs text-gray-400 mt-0.5"
+    className: "text-xs text-[#7a90aa] mt-0.5"
   }, receptor.tipo, ": ", receptor.num), /*#__PURE__*/React.createElement("div", {
-    className: "text-xs text-gray-400 mt-0.5"
+    className: "text-xs text-[#7a90aa] mt-0.5"
   }, "Condición fiscal: ", receptor.condicion), (prop.emailInquilino || "").trim() && /*#__PURE__*/React.createElement("div", {
-    className: "text-xs text-gray-400 mt-0.5"
+    className: "text-xs text-[#7a90aa] mt-0.5"
   }, "Email: ", prop.emailInquilino), tiene2 && /*#__PURE__*/React.createElement("button", {
     onClick: () => setInquilinoSel(null),
-    className: "text-xs text-yellow-500 mt-1 cursor-pointer hover:text-yellow-300"
+    className: "text-xs text-amber-400 mt-1 cursor-pointer hover:text-amber-300"
   }, "↩ Cambiar inquilino")), /*#__PURE__*/React.createElement("div", {
     className: "grid grid-cols-2 gap-3"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "bg-gray-950 rounded-xl p-3 border border-gray-800"
+    className: "bg-[#060a15]/70 rounded-xl p-3 border border-[#1e2a45]"
   }, /*#__PURE__*/React.createElement("div", {
     className: "flex items-center justify-between mb-1"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "text-xs font-bold text-gray-500 uppercase tracking-widest"
+    className: "text-xs font-bold text-[#5a7090] uppercase tracking-widest"
   }, "Fecha del comprobante"), /*#__PURE__*/React.createElement("button", {
     onClick: () => copiar(fechaComprobante),
-    className: "text-xs px-2 py-1 rounded-lg bg-gray-800 text-gray-400 hover:text-white cursor-pointer"
+    className: "text-xs px-2 py-1 rounded-lg bg-gray-800 text-[#7a90aa] hover:text-white cursor-pointer"
   }, "📋")), /*#__PURE__*/React.createElement("input", {
-    className: "w-full bg-gray-900 border border-gray-700 rounded-lg px-2 py-1.5 text-slate-200 text-sm focus:outline-none focus:border-yellow-600",
+    className: "w-full bg-[#0d1220] border border-[#253350] rounded-lg px-2 py-1.5 text-[#e2eaf6] text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/30",
     type: "date",
     value: fechaComp,
     onChange: e => setFechaComp(e.target.value)
   }), /*#__PURE__*/React.createElement("div", {
-    className: "text-xs text-gray-600 mt-1"
+    className: "text-xs text-[#4a6080] mt-1"
   }, "Por defecto: hoy")), /*#__PURE__*/React.createElement(CampoConBoton, {
     label: "Importe",
     valor: fARS(importe),
     advertencia: actuPendiente ? "Revisar: posible actualización pendiente" : ""
   })), prop.montoUSD && prop.cotizacionUSD && /*#__PURE__*/React.createElement("div", {
-    className: "bg-gray-950 rounded-xl p-3 border border-gray-800"
+    className: "bg-[#060a15]/70 rounded-xl p-3 border border-[#1e2a45]"
   }, /*#__PURE__*/React.createElement("div", {
     className: "flex items-center justify-between mb-1"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "text-xs font-bold text-gray-500 uppercase tracking-widest"
+    className: "text-xs font-bold text-[#5a7090] uppercase tracking-widest"
   }, "Importe en USD"), /*#__PURE__*/React.createElement("button", {
     onClick: () => copiar(`USD ${prop.montoUSD} · Cotización BNA vendedor: $${prop.cotizacionUSD} · Equivalente ARS: ${fARS(Math.round(Number(prop.montoUSD) * Number(prop.cotizacionUSD)))}`),
-    className: "text-xs px-2 py-1 rounded-lg bg-gray-800 text-gray-400 hover:text-white cursor-pointer"
+    className: "text-xs px-2 py-1 rounded-lg bg-gray-800 text-[#7a90aa] hover:text-white cursor-pointer"
   }, "📋 Copiar")), /*#__PURE__*/React.createElement("div", {
-    className: "text-sm font-semibold text-slate-200"
+    className: "text-sm font-semibold text-[#e2eaf6]"
   }, "USD ", Number(prop.montoUSD).toLocaleString("es-AR", {
     minimumFractionDigits: 2
   })), /*#__PURE__*/React.createElement("div", {
-    className: "text-xs text-gray-400 mt-0.5"
+    className: "text-xs text-[#7a90aa] mt-0.5"
   }, "Cotización BNA vendedor (día anterior): $", Number(prop.cotizacionUSD).toLocaleString("es-AR", {
     minimumFractionDigits: 2
   })), /*#__PURE__*/React.createElement("div", {
-    className: "text-xs text-yellow-300 mt-0.5 font-semibold"
+    className: "text-xs text-amber-300 mt-0.5 font-semibold"
   }, "Equivalente ARS: ", fARS(Math.round(Number(prop.montoUSD) * Number(prop.cotizacionUSD))))), /*#__PURE__*/React.createElement("div", {
-    className: "bg-gray-950 rounded-xl p-3 border border-gray-800"
+    className: "bg-[#060a15]/70 rounded-xl p-3 border border-[#1e2a45]"
   }, /*#__PURE__*/React.createElement("div", {
     className: "flex items-center justify-between mb-1"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "text-xs font-bold text-gray-500 uppercase tracking-widest"
+    className: "text-xs font-bold text-[#5a7090] uppercase tracking-widest"
   }, "Período del servicio"), /*#__PURE__*/React.createElement("button", {
     onClick: () => copiar(`${periodo.desde} al ${periodo.hasta}`),
-    className: "text-xs px-2 py-1 rounded-lg bg-gray-800 text-gray-400 hover:text-white cursor-pointer"
+    className: "text-xs px-2 py-1 rounded-lg bg-gray-800 text-[#7a90aa] hover:text-white cursor-pointer"
   }, "📋 Copiar")), /*#__PURE__*/React.createElement("div", {
-    className: "text-sm font-semibold text-slate-200"
+    className: "text-sm font-semibold text-[#e2eaf6]"
   }, periodo.desde, " al ", periodo.hasta), /*#__PURE__*/React.createElement("div", {
-    className: "text-xs text-gray-500 mt-1"
+    className: "text-xs text-[#5a7090] mt-1"
   }, "Vencimiento del pago: ", /*#__PURE__*/React.createElement("span", {
-    className: "text-slate-300 font-semibold"
+    className: "text-[#b8cce0] font-semibold"
   }, vencPago))), /*#__PURE__*/React.createElement(CampoConBoton, {
     label: "Descripción",
     valor: descripcion
   }), (prop.formaPago || "").trim() && /*#__PURE__*/React.createElement("div", {
-    className: "bg-gray-950 rounded-xl p-3 border border-gray-800"
+    className: "bg-[#060a15]/70 rounded-xl p-3 border border-[#1e2a45]"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "text-xs font-bold text-gray-500 uppercase tracking-widest mb-1"
+    className: "text-xs font-bold text-[#5a7090] uppercase tracking-widest mb-1"
   }, "Forma de pago ", /*#__PURE__*/React.createElement("span", {
     className: "text-gray-700 normal-case font-normal"
   }, "(registro interno)")), /*#__PURE__*/React.createElement("div", {
-    className: "text-sm font-semibold text-slate-200"
+    className: "text-sm font-semibold text-[#e2eaf6]"
   }, prop.formaPago)), /*#__PURE__*/React.createElement("button", {
     onClick: copiarTodo,
-    className: "w-full bg-yellow-300 text-gray-950 font-bold py-3 rounded-xl text-sm hover:bg-yellow-200 transition-colors cursor-pointer mt-2"
+    className: "w-full bg-gradient-to-r from-amber-400 to-yellow-300 text-gray-950 font-bold py-3 rounded-xl text-sm hover:from-amber-300 hover:to-yellow-200 transition-colors cursor-pointer mt-2"
   }, "📋 Copiar todos los datos"), !ultimoPago && /*#__PURE__*/React.createElement("div", {
-    className: "text-xs text-gray-600 text-center"
+    className: "text-xs text-[#4a6080] text-center"
   }, "No hay pagos registrados. Los datos de importe y fecha son estimados.")));
 }
 
@@ -1155,39 +1179,39 @@ function TabContratos({
   return /*#__PURE__*/React.createElement("div", {
     className: "space-y-3"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "bg-green-950/40 border border-green-800/40 rounded-xl p-3"
+    className: "bg-emerald-950/30 border border-emerald-700/30 rounded-xl p-3"
   }, /*#__PURE__*/React.createElement("div", {
     className: "flex items-center justify-between mb-1"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "text-xs font-bold text-green-400 uppercase tracking-widest"
+    className: "text-xs font-bold text-emerald-400 uppercase tracking-widest"
   }, "Contrato vigente"), /*#__PURE__*/React.createElement("span", {
-    className: "text-xs bg-green-900/60 text-green-300 px-2 py-0.5 rounded-full"
+    className: "text-xs bg-emerald-900/40 text-emerald-300 px-2 py-0.5 rounded-full"
   }, "Activo")), /*#__PURE__*/React.createElement("div", {
-    className: "text-sm font-semibold text-slate-200"
+    className: "text-sm font-semibold text-[#e2eaf6]"
   }, prop.inquilino || "Sin inquilino"), prop.inquilino2 && /*#__PURE__*/React.createElement("div", {
-    className: "text-xs text-gray-400"
+    className: "text-xs text-[#7a90aa]"
   }, "+ ", prop.inquilino2), /*#__PURE__*/React.createElement("div", {
-    className: "text-xs text-gray-500 mt-1"
+    className: "text-xs text-[#5a7090] mt-1"
   }, prop.inicioContrato && /*#__PURE__*/React.createElement("span", null, "Inicio: ", fDate(prop.inicioContrato), " "), prop.vencimientoContrato && /*#__PURE__*/React.createElement("span", null, "· Vence: ", fDate(prop.vencimientoContrato))), /*#__PURE__*/React.createElement("div", {
-    className: "text-xs text-gray-500"
+    className: "text-xs text-[#5a7090]"
   }, fARS(prop.montoActual), " · ", (prop.pagos || []).length, " cobros · ", (prop.actualizaciones || []).length, " actualizaciones")), !confirmando && /*#__PURE__*/React.createElement("button", {
     onClick: () => setConfirmando(true),
-    className: "w-full py-2.5 rounded-xl border border-yellow-700/50 text-yellow-400 text-sm font-semibold hover:bg-yellow-900/20 cursor-pointer"
+    className: "w-full py-2.5 rounded-xl border border-amber-600/40 text-amber-400 text-sm font-semibold hover:bg-amber-900/20 cursor-pointer"
   }, "+ Nuevo contrato / Renovación"), confirmando && /*#__PURE__*/React.createElement("div", {
-    className: "bg-yellow-950/40 border border-yellow-700/40 rounded-xl p-4 space-y-3"
+    className: "bg-amber-950/40 border border-amber-600/40 rounded-xl p-4 space-y-3"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "text-xs text-yellow-300 font-bold"
+    className: "text-xs text-amber-300 font-bold"
   }, "Nuevo contrato"), /*#__PURE__*/React.createElement("div", {
-    className: "text-xs text-gray-400 leading-relaxed"
+    className: "text-xs text-[#7a90aa] leading-relaxed"
   }, "El contrato actual quedará archivado con todos sus cobros, actualizaciones e historial. Se iniciará un contrato nuevo para este inmueble."), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
-    className: "block text-xs font-bold text-gray-500 mb-1 uppercase tracking-widest"
+    className: "block text-xs font-bold text-[#5a7090] mb-1 uppercase tracking-widest"
   }, "Nombre del inquilino"), /*#__PURE__*/React.createElement("input", {
     className: inp,
     value: nuevoInquilino,
     onChange: e => setNuevoInquilino(e.target.value),
     placeholder: "Mismo u otro inquilino"
   }), /*#__PURE__*/React.createElement("div", {
-    className: "text-xs text-gray-600 mt-1"
+    className: "text-xs text-[#4a6080] mt-1"
   }, "Podés editar el resto de los datos del nuevo contrato después desde el botón ✏️ Editar.")), /*#__PURE__*/React.createElement("div", {
     className: "flex gap-2"
   }, /*#__PURE__*/React.createElement("button", {
@@ -1199,23 +1223,23 @@ function TabContratos({
   }, "Cancelar"))), contratos.length > 0 && /*#__PURE__*/React.createElement("div", {
     className: "space-y-2"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "text-xs font-bold text-gray-600 uppercase tracking-widest mt-2"
+    className: "text-xs font-bold text-[#4a6080] uppercase tracking-widest mt-2"
   }, "Contratos anteriores"), [...contratos].reverse().map((c, i) => /*#__PURE__*/React.createElement("div", {
     key: c.id,
-    className: "bg-gray-950 border border-gray-800 rounded-xl p-3"
+    className: "bg-[#060a15]/70 border border-[#1e2a45] rounded-xl p-3"
   }, /*#__PURE__*/React.createElement("div", {
     className: "flex items-center justify-between"
   }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
-    className: "text-sm font-semibold text-slate-300"
+    className: "text-sm font-semibold text-[#b8cce0]"
   }, c.inquilino || "Sin nombre", c.inquilino2 ? ` + ${c.inquilino2}` : ""), /*#__PURE__*/React.createElement("div", {
-    className: "text-xs text-gray-500 mt-0.5"
+    className: "text-xs text-[#5a7090] mt-0.5"
   }, c.inicioContrato && /*#__PURE__*/React.createElement("span", null, fDate(c.inicioContrato), " "), c.vencimientoContrato && /*#__PURE__*/React.createElement("span", null, "→ ", fDate(c.vencimientoContrato))), /*#__PURE__*/React.createElement("div", {
-    className: "text-xs text-gray-600"
+    className: "text-xs text-[#4a6080]"
   }, fARS(c.montoActual), " final · ", (c.pagos || []).length, " cobros · Archivado ", fDate(c.fechaArchivo))), /*#__PURE__*/React.createElement("button", {
     onClick: () => setVerContrato(verContrato === c.id ? null : c.id),
-    className: "text-xs px-2 py-1 rounded-lg bg-gray-800 text-gray-400 hover:text-white cursor-pointer"
+    className: "text-xs px-2 py-1 rounded-lg bg-gray-800 text-[#7a90aa] hover:text-white cursor-pointer"
   }, verContrato === c.id ? "▲ Cerrar" : "▼ Ver")), verContrato === c.id && /*#__PURE__*/React.createElement("div", {
-    className: "mt-3 pt-3 border-t border-gray-800 space-y-2"
+    className: "mt-3 pt-3 border-t border-[#1e2a45] space-y-2"
   }, /*#__PURE__*/React.createElement("div", {
     className: "grid grid-cols-2 gap-2"
   }, [{
@@ -1232,16 +1256,16 @@ function TabContratos({
     v: fARS((c.pagos || []).reduce((s, p) => s + p.montoPagado, 0))
   }].map(it => /*#__PURE__*/React.createElement("div", {
     key: it.l,
-    className: "bg-gray-900 rounded-lg p-2 border border-gray-800"
+    className: "bg-[#0d1220] rounded-lg p-2 border border-[#1e2a45]"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "text-xs text-gray-600 mb-0.5"
+    className: "text-xs text-[#4a6080] mb-0.5"
   }, it.l), /*#__PURE__*/React.createElement("div", {
-    className: "text-sm font-bold text-slate-200"
+    className: "text-sm font-bold text-[#e2eaf6]"
   }, it.v)))), (c.actualizaciones || []).length > 0 && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
-    className: "text-xs text-gray-500 mb-1"
+    className: "text-xs text-[#5a7090] mb-1"
   }, "Actualizaciones aplicadas:"), [...c.actualizaciones].sort((a, b) => a.mes.localeCompare(b.mes)).map(a => /*#__PURE__*/React.createElement("div", {
     key: a.id,
-    className: "text-xs text-gray-500 flex justify-between py-0.5"
+    className: "text-xs text-[#5a7090] flex justify-between py-0.5"
   }, /*#__PURE__*/React.createElement("span", null, ymLabel(a.mes)), /*#__PURE__*/React.createElement("span", {
     className: "text-green-500"
   }, "+", ((a.factor - 1) * 100).toFixed(2), "% → ", fARS(a.montoNuevo))))))))));
@@ -1350,30 +1374,30 @@ function HistorialMontos({
   }, /*#__PURE__*/React.createElement("div", {
     className: "flex items-center justify-between mb-1"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "text-xs text-gray-500"
+    className: "text-xs text-[#5a7090]"
   }, "Evolución del monto desde inicio del contrato"), /*#__PURE__*/React.createElement("button", {
     onClick: () => setAgregando(true),
-    className: "text-xs px-2 py-1 rounded-lg bg-gray-800 text-gray-400 hover:text-white cursor-pointer"
+    className: "text-xs px-2 py-1 rounded-lg bg-gray-800 text-[#7a90aa] hover:text-white cursor-pointer"
   }, "+ Agregar")), historial.length === 0 && /*#__PURE__*/React.createElement("div", {
-    className: "text-center py-8 text-gray-600 text-sm"
+    className: "text-center py-8 text-[#4a6080] text-sm"
   }, "Sin datos. Cargá la fecha de inicio y registrá actualizaciones."), historial.map(item => /*#__PURE__*/React.createElement("div", {
     key: item.id,
-    className: "bg-gray-950 rounded-xl p-3 border border-gray-800"
+    className: "bg-[#060a15]/70 rounded-xl p-3 border border-[#1e2a45]"
   }, editId === item.id ? /*#__PURE__*/React.createElement("div", {
     className: "space-y-2"
   }, /*#__PURE__*/React.createElement("div", {
     className: "grid grid-cols-2 gap-2"
   }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
-    className: "block text-xs text-gray-500 mb-1"
+    className: "block text-xs text-[#5a7090] mb-1"
   }, "Monto ($ARS)"), /*#__PURE__*/React.createElement("input", {
-    className: "w-full bg-gray-900 border border-gray-700 rounded-lg px-2 py-1.5 text-slate-200 text-sm focus:outline-none",
+    className: "w-full bg-[#0d1220] border border-[#253350] rounded-lg px-2 py-1.5 text-[#e2eaf6] text-sm focus:outline-none",
     type: "number",
     value: editMonto,
     onChange: e => setEditMonto(e.target.value)
   })), item.tipo === "manual" && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
-    className: "block text-xs text-gray-500 mb-1"
+    className: "block text-xs text-[#5a7090] mb-1"
   }, "Desde"), /*#__PURE__*/React.createElement("input", {
-    className: "w-full bg-gray-900 border border-gray-700 rounded-lg px-2 py-1.5 text-slate-200 text-sm focus:outline-none",
+    className: "w-full bg-[#0d1220] border border-[#253350] rounded-lg px-2 py-1.5 text-[#e2eaf6] text-sm focus:outline-none",
     type: "month",
     value: editDesde,
     onChange: e => setEditDesde(e.target.value)
@@ -1381,16 +1405,16 @@ function HistorialMontos({
     className: "flex gap-2"
   }, /*#__PURE__*/React.createElement("button", {
     onClick: () => guardarEdicion(item),
-    className: "flex-1 text-xs py-1.5 rounded-lg bg-yellow-300 text-gray-950 font-bold cursor-pointer"
+    className: "flex-1 text-xs py-1.5 rounded-lg bg-gradient-to-r from-amber-400 to-yellow-300 text-gray-950 font-bold cursor-pointer"
   }, "Guardar"), /*#__PURE__*/React.createElement("button", {
     onClick: () => setEditId(null),
-    className: "text-xs px-3 py-1.5 rounded-lg border border-gray-700 text-gray-500 cursor-pointer"
+    className: "text-xs px-3 py-1.5 rounded-lg border border-[#253350] text-[#5a7090] cursor-pointer"
   }, "Cancelar"))) : /*#__PURE__*/React.createElement("div", {
     className: "flex items-center justify-between gap-3"
   }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
-    className: "text-sm font-bold text-yellow-300"
+    className: "text-sm font-bold text-amber-300"
   }, fARS(item.monto)), /*#__PURE__*/React.createElement("div", {
-    className: "text-xs text-gray-500 mt-0.5"
+    className: "text-xs text-[#5a7090] mt-0.5"
   }, item.tipo === "inicial" ? "Monto inicial" : item.tipo === "manual" ? "Carga manual" : `Actualización +${item.pct}%`, item.desde && ` · desde ${item.tipo === "actualizacion" ? ymLabel(item.desde) : fDate(item.desde + "T00:00:00") || item.desde}`), /*#__PURE__*/React.createElement("div", {
     className: "text-xs text-gray-700"
   }, item.hasta)), /*#__PURE__*/React.createElement("div", {
@@ -1401,28 +1425,28 @@ function HistorialMontos({
       setEditMonto(String(item.monto));
       setEditDesde(item.desde || "");
     },
-    className: "text-xs px-2 py-0.5 rounded-lg bg-gray-800 border border-gray-700 text-gray-400 hover:text-white cursor-pointer"
+    className: "text-xs px-2 py-0.5 rounded-lg bg-gray-800 border border-[#253350] text-[#7a90aa] hover:text-white cursor-pointer"
   }, "✏️"), item.tipo === "manual" && /*#__PURE__*/React.createElement("button", {
     onClick: () => eliminarManual(item.id),
-    className: "text-xs px-2 py-0.5 rounded-lg bg-red-950/50 border border-red-900/50 text-red-500 cursor-pointer"
+    className: "text-xs px-2 py-0.5 rounded-lg bg-rose-950/40 border border-rose-800/40 text-rose-500 cursor-pointer"
   }, "🗑️"))))), agregando && /*#__PURE__*/React.createElement("div", {
-    className: "bg-gray-950 rounded-xl p-3 border border-yellow-700/40 space-y-2"
+    className: "bg-[#060a15]/70 rounded-xl p-3 border border-amber-600/40 space-y-2"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "text-xs font-bold text-yellow-400 mb-1"
+    className: "text-xs font-bold text-amber-400 mb-1"
   }, "Nueva entrada manual"), /*#__PURE__*/React.createElement("div", {
     className: "grid grid-cols-2 gap-2"
   }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
-    className: "block text-xs text-gray-500 mb-1"
+    className: "block text-xs text-[#5a7090] mb-1"
   }, "Monto ($ARS)"), /*#__PURE__*/React.createElement("input", {
-    className: "w-full bg-gray-900 border border-gray-700 rounded-lg px-2 py-1.5 text-slate-200 text-sm focus:outline-none",
+    className: "w-full bg-[#0d1220] border border-[#253350] rounded-lg px-2 py-1.5 text-[#e2eaf6] text-sm focus:outline-none",
     type: "number",
     value: nuevoMonto,
     onChange: e => setNuevoMonto(e.target.value),
     placeholder: "0"
   })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
-    className: "block text-xs text-gray-500 mb-1"
+    className: "block text-xs text-[#5a7090] mb-1"
   }, "Vigente desde"), /*#__PURE__*/React.createElement("input", {
-    className: "w-full bg-gray-900 border border-gray-700 rounded-lg px-2 py-1.5 text-slate-200 text-sm focus:outline-none",
+    className: "w-full bg-[#0d1220] border border-[#253350] rounded-lg px-2 py-1.5 text-[#e2eaf6] text-sm focus:outline-none",
     type: "month",
     value: nuevoDesde,
     onChange: e => setNuevoDesde(e.target.value)
@@ -1430,10 +1454,10 @@ function HistorialMontos({
     className: "flex gap-2"
   }, /*#__PURE__*/React.createElement("button", {
     onClick: agregarEntrada,
-    className: "flex-1 text-xs py-1.5 rounded-lg bg-yellow-300 text-gray-950 font-bold cursor-pointer"
+    className: "flex-1 text-xs py-1.5 rounded-lg bg-gradient-to-r from-amber-400 to-yellow-300 text-gray-950 font-bold cursor-pointer"
   }, "Agregar"), /*#__PURE__*/React.createElement("button", {
     onClick: () => setAgregando(false),
-    className: "text-xs px-3 py-1.5 rounded-lg border border-gray-700 text-gray-500 cursor-pointer"
+    className: "text-xs px-3 py-1.5 rounded-lg border border-[#253350] text-[#5a7090] cursor-pointer"
   }, "Cancelar"))));
 }
 
@@ -1473,25 +1497,25 @@ function PagoItem({
     setEditandoRef(false);
   };
   return /*#__PURE__*/React.createElement("div", {
-    className: "bg-gray-950 rounded-xl p-3 border border-gray-800"
+    className: "bg-[#060a15]/70 rounded-xl p-3 border border-[#1e2a45]"
   }, /*#__PURE__*/React.createElement("div", {
     className: "flex items-center justify-between gap-3"
   }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
-    className: "text-sm font-bold text-slate-200"
+    className: "text-sm font-bold text-[#e2eaf6]"
   }, ymLabel(pago.mes)), /*#__PURE__*/React.createElement("div", {
-    className: "text-xs text-gray-500"
+    className: "text-xs text-[#5a7090]"
   }, fDate(pago.fechaPago)), pago.refArca && !editandoRef && /*#__PURE__*/React.createElement("div", {
-    className: "text-xs text-gray-600"
+    className: "text-xs text-[#4a6080]"
   }, "Ref: ", pago.refArca), pago.facturaARCA && pago.fechaARCA && pago.fechaARCA !== pago.fechaPago && /*#__PURE__*/React.createElement("div", {
-    className: "text-xs text-gray-600"
+    className: "text-xs text-[#4a6080]"
   }, "ARCA emitida: ", fDate(pago.fechaARCA)), pago.notas && /*#__PURE__*/React.createElement("div", {
-    className: "text-xs text-gray-600"
+    className: "text-xs text-[#4a6080]"
   }, pago.notas)), /*#__PURE__*/React.createElement("div", {
     className: "text-right shrink-0 flex flex-col items-end gap-1"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "text-sm font-bold text-yellow-300"
+    className: "text-sm font-bold text-amber-300"
   }, fARS(pago.montoPagado)), /*#__PURE__*/React.createElement("div", {
-    className: `text-xs font-semibold ${pago.facturaARCA ? "text-green-400" : "text-yellow-600"}`
+    className: `text-xs font-semibold ${pago.facturaARCA ? "text-emerald-400" : "text-amber-500"}`
   }, pago.facturaARCA ? "✓ ARCA" : "⚠ Sin ARCA"), pago.facturaARCA && /*#__PURE__*/React.createElement("div", {
     className: "flex gap-1"
   }, /*#__PURE__*/React.createElement("button", {
@@ -1499,7 +1523,7 @@ function PagoItem({
       setRefEdit(pago.refArca || "");
       setEditandoRef(true);
     },
-    className: "text-xs px-2 py-0.5 rounded-lg bg-gray-800 border border-gray-700 text-gray-400 hover:text-white cursor-pointer",
+    className: "text-xs px-2 py-0.5 rounded-lg bg-gray-800 border border-[#253350] text-[#7a90aa] hover:text-white cursor-pointer",
     title: "Editar N° recibo"
   }, "✏️"), /*#__PURE__*/React.createElement("button", {
     onClick: () => {
@@ -1509,11 +1533,11 @@ function PagoItem({
         pagos: (prop.pagos || []).filter(p => p.id !== pago.id)
       });
     },
-    className: "text-xs px-2 py-0.5 rounded-lg bg-red-950/50 border border-red-900/50 text-red-500 hover:bg-red-900/50 cursor-pointer"
+    className: "text-xs px-2 py-0.5 rounded-lg bg-rose-950/40 border border-rose-800/40 text-rose-500 hover:bg-rose-900/40 cursor-pointer"
   }, "🗑️")))), pago.facturaARCA && editandoRef && /*#__PURE__*/React.createElement("div", {
     className: "mt-2 space-y-2"
   }, /*#__PURE__*/React.createElement("input", {
-    className: "w-full bg-gray-900 border border-gray-700 rounded-xl px-3 py-2 text-slate-200 text-sm focus:outline-none focus:border-yellow-600",
+    className: "w-full bg-[#0d1220] border border-[#253350] rounded-xl px-3 py-2 text-[#e2eaf6] text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/30",
     value: refEdit,
     onChange: e => setRefEdit(e.target.value),
     placeholder: "N° comprobante / referencia"
@@ -1521,15 +1545,15 @@ function PagoItem({
     className: "flex gap-2"
   }, /*#__PURE__*/React.createElement("button", {
     onClick: guardarRef,
-    className: "flex-1 text-xs py-1.5 rounded-lg bg-yellow-300 text-gray-950 font-bold cursor-pointer"
+    className: "flex-1 text-xs py-1.5 rounded-lg bg-gradient-to-r from-amber-400 to-yellow-300 text-gray-950 font-bold cursor-pointer"
   }, "Guardar"), /*#__PURE__*/React.createElement("button", {
     onClick: () => setEditandoRef(false),
-    className: "text-xs px-3 py-1.5 rounded-lg border border-gray-700 text-gray-500 cursor-pointer"
+    className: "text-xs px-3 py-1.5 rounded-lg border border-[#253350] text-[#5a7090] cursor-pointer"
   }, "Cancelar"))), !pago.facturaARCA && !marcando && /*#__PURE__*/React.createElement("div", {
     className: "mt-2 flex gap-2"
   }, /*#__PURE__*/React.createElement("button", {
     onClick: () => setMarcando(true),
-    className: "flex-1 text-xs py-1.5 rounded-lg bg-blue-950/50 border border-blue-900/50 text-blue-400 hover:bg-blue-900/50 cursor-pointer font-semibold"
+    className: "flex-1 text-xs py-1.5 rounded-lg bg-indigo-950/50 border border-indigo-800/40 text-indigo-400 hover:bg-indigo-900/40 cursor-pointer font-semibold"
   }, "🧾 Marcar ARCA"), /*#__PURE__*/React.createElement("button", {
     onClick: () => {
       if (!confirm("¿Eliminar este cobro?")) return;
@@ -1538,18 +1562,18 @@ function PagoItem({
         pagos: (prop.pagos || []).filter(p => p.id !== pago.id)
       });
     },
-    className: "text-xs px-3 py-1.5 rounded-lg bg-red-950/50 border border-red-900/50 text-red-500 hover:bg-red-900/50 cursor-pointer"
+    className: "text-xs px-3 py-1.5 rounded-lg bg-rose-950/40 border border-rose-800/40 text-rose-500 hover:bg-rose-900/40 cursor-pointer"
   }, "🗑️")), !pago.facturaARCA && marcando && /*#__PURE__*/React.createElement("div", {
     className: "mt-2 space-y-2"
   }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
-    className: "block text-xs font-bold text-gray-500 mb-1 uppercase tracking-widest"
+    className: "block text-xs font-bold text-[#5a7090] mb-1 uppercase tracking-widest"
   }, "Fecha de emisión ARCA"), /*#__PURE__*/React.createElement("input", {
-    className: "w-full bg-gray-900 border border-gray-700 rounded-xl px-3 py-2 text-slate-200 text-sm focus:outline-none focus:border-yellow-600",
+    className: "w-full bg-[#0d1220] border border-[#253350] rounded-xl px-3 py-2 text-[#e2eaf6] text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/30",
     type: "date",
     value: fechaARCA,
     onChange: e => setFechaARCA(e.target.value)
   })), /*#__PURE__*/React.createElement("input", {
-    className: "w-full bg-gray-900 border border-gray-700 rounded-xl px-3 py-2 text-slate-200 text-sm focus:outline-none focus:border-yellow-600",
+    className: "w-full bg-[#0d1220] border border-[#253350] rounded-xl px-3 py-2 text-[#e2eaf6] text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/30",
     value: ref,
     onChange: e => setRef(e.target.value),
     placeholder: "N° comprobante / referencia (opcional)"
@@ -1557,10 +1581,10 @@ function PagoItem({
     className: "flex gap-2"
   }, /*#__PURE__*/React.createElement("button", {
     onClick: marcarARCA,
-    className: "flex-1 text-xs py-1.5 rounded-lg bg-blue-900/60 border border-blue-700 text-blue-200 hover:bg-blue-800/60 cursor-pointer font-bold"
+    className: "flex-1 text-xs py-1.5 rounded-lg bg-indigo-900/50 border border-indigo-600 text-indigo-200 hover:bg-indigo-800/50 cursor-pointer font-bold"
   }, "✓ Confirmar"), /*#__PURE__*/React.createElement("button", {
     onClick: () => setMarcando(false),
-    className: "text-xs px-3 py-1.5 rounded-lg border border-gray-700 text-gray-500 hover:text-gray-300 cursor-pointer"
+    className: "text-xs px-3 py-1.5 rounded-lg border border-[#253350] text-[#5a7090] hover:text-[#a0b4cc] cursor-pointer"
   }, "Cancelar"))));
 }
 
@@ -1589,22 +1613,22 @@ function MarcarARCAInline({
   }, /*#__PURE__*/React.createElement("div", {
     className: "grid grid-cols-2 gap-2"
   }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
-    className: "block text-xs text-gray-500 mb-1"
+    className: "block text-xs text-[#5a7090] mb-1"
   }, "Fecha emisión ARCA"), /*#__PURE__*/React.createElement("input", {
-    className: "w-full bg-gray-900 border border-gray-700 rounded-xl px-3 py-2 text-slate-200 text-sm focus:outline-none focus:border-yellow-600",
+    className: "w-full bg-[#0d1220] border border-[#253350] rounded-xl px-3 py-2 text-[#e2eaf6] text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/30",
     type: "date",
     value: fecha,
     onChange: e => setFecha(e.target.value)
   })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
-    className: "block text-xs text-gray-500 mb-1"
+    className: "block text-xs text-[#5a7090] mb-1"
   }, "N° comprobante"), /*#__PURE__*/React.createElement("input", {
-    className: "w-full bg-gray-900 border border-gray-700 rounded-xl px-3 py-2 text-slate-200 text-sm focus:outline-none focus:border-yellow-600",
+    className: "w-full bg-[#0d1220] border border-[#253350] rounded-xl px-3 py-2 text-[#e2eaf6] text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/30",
     value: ref,
     onChange: e => setRef(e.target.value),
     placeholder: "Opcional"
   }))), /*#__PURE__*/React.createElement("button", {
     onClick: confirmar,
-    className: "w-full bg-blue-900/60 border border-blue-700 text-blue-200 font-bold py-2 rounded-xl text-sm hover:bg-blue-800/60 cursor-pointer"
+    className: "w-full bg-indigo-900/50 border border-indigo-600 text-indigo-200 font-bold py-2 rounded-xl text-sm hover:bg-indigo-800/50 cursor-pointer"
   }, "✓ Confirmar recibo ARCA emitido"));
 }
 
@@ -1665,9 +1689,9 @@ function DetalleInmueble({
   }, /*#__PURE__*/React.createElement("div", {
     className: "flex items-center gap-2 mb-4"
   }, /*#__PURE__*/React.createElement("span", {
-    className: `text-xs px-2.5 py-1 rounded-full font-bold border ${prop.locador === "1" ? "bg-blue-950/80 border-blue-700 text-blue-300" : "bg-purple-950/80 border-purple-700 text-purple-300"}`
+    className: `text-xs px-2.5 py-1 rounded-full font-bold border ${prop.locador === "1" ? "bg-indigo-950/70 border-indigo-600 text-indigo-300" : "bg-violet-950/70 border-violet-600 text-violet-300"}`
   }, L), prop.telefono && /*#__PURE__*/React.createElement("span", {
-    className: "text-xs text-gray-500"
+    className: "text-xs text-[#5a7090]"
   }, "📞 ", prop.telefono)), /*#__PURE__*/React.createElement("div", {
     className: "grid grid-cols-2 gap-3 mb-4"
   }, [{
@@ -1685,53 +1709,53 @@ function DetalleInmueble({
     val: fDate(prop.vencimientoContrato)
   }].map(it => /*#__PURE__*/React.createElement("div", {
     key: it.label,
-    className: "bg-gray-950 rounded-xl p-3 border border-gray-800"
+    className: "bg-[#060a15]/70 rounded-xl p-3 border border-[#1e2a45]"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "text-xs font-bold text-gray-600 uppercase tracking-wider mb-1"
+    className: "text-xs font-bold text-[#4a6080] uppercase tracking-wider mb-1"
   }, it.label), /*#__PURE__*/React.createElement("div", {
-    className: `text-sm font-bold ${it.gold ? "text-yellow-300" : "text-slate-200"}`
+    className: `text-sm font-bold ${it.gold ? "text-amber-300" : "text-[#e2eaf6]"}`
   }, it.val)))), /*#__PURE__*/React.createElement("div", {
-    className: `px-4 py-3 rounded-xl mb-3 border ${pagoActual ? "bg-green-950/50 border-green-800/50" : "bg-red-950/50 border-red-900/50"}`
+    className: `px-4 py-3 rounded-xl mb-3 border ${pagoActual ? "bg-emerald-950/40 border-emerald-700/40" : "bg-rose-950/40 border-rose-800/40"}`
   }, /*#__PURE__*/React.createElement("div", {
-    className: "text-xs text-gray-500 mb-0.5"
+    className: "text-xs text-[#5a7090] mb-0.5"
   }, "Estado ", ymLabel(curYM)), /*#__PURE__*/React.createElement("div", {
-    className: `text-sm font-bold ${pagoActual ? "text-green-400" : "text-red-400"}`
+    className: `text-sm font-bold ${pagoActual ? "text-emerald-400" : "text-rose-400"}`
   }, pagoActual ? pagoActual.facturaARCA ? "✓ Cobrado · ARCA emitida" : "✓ Cobrado · ARCA pendiente" : "✗ Sin cobrar este mes"), pagoActual && /*#__PURE__*/React.createElement("div", {
-    className: "text-xs text-gray-500 mt-0.5"
+    className: "text-xs text-[#5a7090] mt-0.5"
   }, fARS(pagoActual.montoPagado), " el ", fDate(pagoActual.fechaPago))), pagoActual && !pagoActual.facturaARCA && /*#__PURE__*/React.createElement("div", {
-    className: "bg-blue-950/40 border border-blue-700/50 rounded-xl p-3 mb-3"
+    className: "bg-indigo-950/50 border border-indigo-600/50 rounded-xl p-3 mb-3"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "text-xs text-blue-300 mb-2 font-semibold"
+    className: "text-xs text-indigo-300 mb-2 font-semibold"
   }, "📋 Tenés un cobro registrado sin recibo ARCA"), /*#__PURE__*/React.createElement(MarcarARCAInline, {
     pago: pagoActual,
     prop: prop,
     onUpdate: onUpdate
   })), teneParciales && /*#__PURE__*/React.createElement("div", {
-    className: "bg-yellow-950/40 border border-yellow-700/40 rounded-xl px-4 py-2 mb-3 text-xs text-yellow-400"
+    className: "bg-amber-950/40 border border-amber-600/40 rounded-xl px-4 py-2 mb-3 text-xs text-amber-400"
   }, "📊 Índices IPC parciales para ", ymLabel(prop.proximaActualizacion)), /*#__PURE__*/React.createElement("div", {
     className: "grid grid-cols-3 gap-2 mb-4"
   }, /*#__PURE__*/React.createElement("button", {
     onClick: () => setSub("pago"),
-    className: "bg-green-950/50 border border-green-800/60 text-green-300 text-sm font-semibold py-2.5 rounded-xl hover:bg-green-900/50 cursor-pointer"
+    className: "bg-emerald-950/40 border border-emerald-700/40 text-emerald-300 text-sm font-semibold py-2.5 rounded-xl hover:bg-emerald-900/40 cursor-pointer"
   }, "💰 Cobro"), /*#__PURE__*/React.createElement("button", {
     onClick: () => setSub("indices"),
-    className: `text-sm font-semibold py-2.5 rounded-xl cursor-pointer ${teneParciales ? "bg-yellow-800/40 border border-yellow-600/60 text-yellow-200" : "bg-yellow-900/20 border border-yellow-700/40 text-yellow-300"}`
+    className: `text-sm font-semibold py-2.5 rounded-xl cursor-pointer ${teneParciales ? "bg-amber-800/30 border border-amber-500/50 text-amber-200" : "bg-amber-900/20 border border-amber-600/40 text-amber-300"}`
   }, "📊 IPC"), /*#__PURE__*/React.createElement("button", {
     onClick: () => setSub("arca"),
-    className: "bg-blue-950/50 border border-blue-800/60 text-blue-300 text-sm font-semibold py-2.5 rounded-xl hover:bg-blue-900/50 cursor-pointer"
+    className: "bg-indigo-950/40 border border-indigo-600/30 text-indigo-300 text-sm font-semibold py-2.5 rounded-xl hover:bg-indigo-900/40 cursor-pointer transition-all"
   }, "🧾 ARCA")), /*#__PURE__*/React.createElement("div", {
-    className: "flex gap-1 bg-gray-950 rounded-xl p-1 border border-gray-800 mb-4",
+    className: "flex gap-1 bg-[#070b14] rounded-xl p-1 border border-[#1e2a45] mb-4",
     style: {
       overflowX: "auto"
     }
   }, [["pagos", `Cobros (${(prop.pagos || []).length})`], ["actualizaciones", `Actualizaciones (${(prop.actualizaciones || []).length})`], ["historial", "Historial montos"], ["contratos", `Contratos (${1 + (prop.contratos || []).length})`]].map(([k, l]) => /*#__PURE__*/React.createElement("button", {
     key: k,
     onClick: () => setTab(k),
-    className: `flex-shrink-0 px-3 py-2 rounded-lg text-xs font-bold transition-colors cursor-pointer ${tab === k ? "bg-gray-800 text-slate-200" : "text-gray-600 hover:text-gray-400"}`
+    className: `flex-shrink-0 px-3 py-2 rounded-lg text-xs font-bold transition-colors cursor-pointer ${tab === k ? "bg-gray-800 text-[#e2eaf6]" : "text-[#4a6080] hover:text-[#7a90aa]"}`
   }, l))), tab === "pagos" && /*#__PURE__*/React.createElement("div", {
     className: "space-y-2"
   }, pagosOrdenados.length === 0 ? /*#__PURE__*/React.createElement("div", {
-    className: "text-center py-8 text-gray-600 text-sm"
+    className: "text-center py-8 text-[#4a6080] text-sm"
   }, "No hay cobros") : pagosOrdenados.map(p => /*#__PURE__*/React.createElement(PagoItem, {
     key: p.id,
     pago: p,
@@ -1740,29 +1764,29 @@ function DetalleInmueble({
   }))), tab === "actualizaciones" && /*#__PURE__*/React.createElement("div", {
     className: "space-y-2"
   }, actsOrdenadas.length === 0 ? /*#__PURE__*/React.createElement("div", {
-    className: "text-center py-8 text-gray-600 text-sm"
+    className: "text-center py-8 text-[#4a6080] text-sm"
   }, "Sin actualizaciones") : actsOrdenadas.map(a => /*#__PURE__*/React.createElement("div", {
     key: a.id,
-    className: "bg-gray-950 rounded-xl p-4 border border-gray-800"
+    className: "bg-[#060a15]/70 rounded-xl p-4 border border-[#1e2a45]"
   }, /*#__PURE__*/React.createElement("div", {
     className: "flex justify-between mb-2"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "text-sm font-bold text-slate-200"
+    className: "text-sm font-bold text-[#e2eaf6]"
   }, "Actualización ", ymLabel(a.mes)), /*#__PURE__*/React.createElement("div", {
-    className: "text-sm font-bold text-green-400"
+    className: "text-sm font-bold text-emerald-400"
   }, "+", ((a.factor - 1) * 100).toFixed(2), "%")), /*#__PURE__*/React.createElement("div", {
     className: "grid grid-cols-3 gap-2 mb-2"
   }, getIPCLabels(a.mes).map((label, i) => /*#__PURE__*/React.createElement("div", {
     key: i,
-    className: "bg-gray-900 rounded-lg p-2 text-center border border-gray-800"
+    className: "bg-[#0d1220] rounded-lg p-2 text-center border border-[#1e2a45]"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "text-xs text-gray-600 mb-1"
+    className: "text-xs text-[#4a6080] mb-1"
   }, label), /*#__PURE__*/React.createElement("div", {
-    className: "text-sm font-bold text-slate-300"
+    className: "text-sm font-bold text-[#b8cce0]"
   }, a.ipc[i], "%")))), /*#__PURE__*/React.createElement("div", {
-    className: "flex justify-between text-xs text-gray-500"
+    className: "flex justify-between text-xs text-[#5a7090]"
   }, /*#__PURE__*/React.createElement("span", null, fARS(a.montoAnterior), " → ", /*#__PURE__*/React.createElement("span", {
-    className: "text-yellow-300"
+    className: "text-amber-300"
   }, fARS(a.montoNuevo))), /*#__PURE__*/React.createElement("span", null, fDate(a.fechaCarga)))))), tab === "contratos" && /*#__PURE__*/React.createElement(TabContratos, {
     prop: prop,
     onUpdate: onUpdate
@@ -1770,11 +1794,11 @@ function DetalleInmueble({
     prop: prop,
     onUpdate: onUpdate
   }), prop.notas && /*#__PURE__*/React.createElement("div", {
-    className: "mt-4 bg-gray-950 rounded-xl p-3 border border-gray-800"
+    className: "mt-4 bg-[#070b14] rounded-xl p-3 border border-[#1e2a45]"
   }, /*#__PURE__*/React.createElement("div", {
     className: `${lbl} mb-1`
   }, "Notas"), /*#__PURE__*/React.createElement("div", {
-    className: "text-sm text-gray-400"
+    className: "text-sm text-[#7a90aa]"
   }, prop.notas)));
 }
 
@@ -1795,11 +1819,11 @@ function TarjetaInmueble({
   const pendientes = prop.indicesPendientes || {};
   const teneParciales = prop.proximaActualizacion && pendientes[prop.proximaActualizacion] && pendientes[prop.proximaActualizacion].some(v => v !== null && v !== "");
   return /*#__PURE__*/React.createElement("div", {
-    className: "bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden hover:border-gray-700 group flex flex-col"
+    className: "bg-[#0d1220] border border-[#1e2a45] rounded-2xl overflow-hidden hover:border-[#253350] group flex flex-col"
   }, alerta && /*#__PURE__*/React.createElement("div", {
-    className: `px-4 py-2 text-xs font-bold ${alerta.tipo === "vencimiento" ? "bg-red-950/80 text-red-300" : "bg-yellow-950/80 text-yellow-300"}`
+    className: `px-4 py-2 text-xs font-bold ${alerta.tipo === "vencimiento" ? "bg-rose-950/70 text-rose-300" : "bg-amber-950/70 text-amber-300"}`
   }, alerta.tipo === "vencimiento" ? `⚠️ Vence en ${alerta.dias} días` : "📊 Cargá los índices IPC"), !alerta && teneParciales && /*#__PURE__*/React.createElement("div", {
-    className: "px-4 py-2 text-xs font-bold bg-yellow-950/50 text-yellow-500"
+    className: "px-4 py-2 text-xs font-bold bg-amber-950/40 text-amber-400"
   }, "📊 Índices IPC parciales"), /*#__PURE__*/React.createElement("div", {
     className: "p-4 cursor-pointer flex-1",
     onClick: onClick
@@ -1808,39 +1832,39 @@ function TarjetaInmueble({
   }, /*#__PURE__*/React.createElement("div", {
     className: "min-w-0"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "font-bold text-slate-100 text-sm"
+    className: "font-bold text-[#eef3fa] text-sm"
   }, prop.direccion || "Sin dirección"), prop.inquilino && /*#__PURE__*/React.createElement("div", {
-    className: "text-xs text-gray-500 mt-0.5"
+    className: "text-xs text-[#5a7090] mt-0.5"
   }, "👤 ", prop.inquilino)), /*#__PURE__*/React.createElement("span", {
-    className: `text-xs px-2 py-1 rounded-full font-bold border whitespace-nowrap shrink-0 ${prop.locador === "1" ? "bg-blue-950/80 border-blue-800 text-blue-400" : "bg-purple-950/80 border-purple-800 text-purple-400"}`
+    className: `text-xs px-2 py-1 rounded-full font-bold border whitespace-nowrap shrink-0 ${prop.locador === "1" ? "bg-indigo-950/70 border-indigo-700 text-indigo-400" : "bg-violet-950/70 border-violet-700 text-violet-400"}`
   }, L)), /*#__PURE__*/React.createElement("div", {
     className: "grid grid-cols-2 gap-2 mb-3"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "bg-gray-950 rounded-xl p-2.5 border border-gray-800"
+    className: "bg-[#060a15]/80 rounded-xl p-2.5 border border-[#1e2a45]/50"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "text-xs text-gray-600 mb-0.5"
+    className: "text-xs text-[#4a6080] mb-0.5"
   }, "Alquiler"), /*#__PURE__*/React.createElement("div", {
-    className: "text-sm font-bold text-yellow-300"
+    className: "text-sm font-bold text-amber-300"
   }, fARS(prop.montoActual)), prop.montoVigenteDesde && /*#__PURE__*/React.createElement("div", {
-    className: "text-xs text-gray-600"
+    className: "text-xs text-[#4a6080]"
   }, "desde ", ymLabel(prop.montoVigenteDesde))), /*#__PURE__*/React.createElement("div", {
-    className: "bg-gray-950 rounded-xl p-2.5 border border-gray-800"
+    className: "bg-[#060a15]/80 rounded-xl p-2.5 border border-[#1e2a45]/50"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "text-xs text-gray-600 mb-0.5"
+    className: "text-xs text-[#4a6080] mb-0.5"
   }, "Este mes"), pagoActual ? /*#__PURE__*/React.createElement("div", {
-    className: "text-xs font-bold text-green-400"
+    className: "text-xs font-bold text-emerald-400"
   }, pagoActual.facturaARCA ? "✓ ARCA" : "✓ Sin ARCA") : /*#__PURE__*/React.createElement("div", {
-    className: "text-xs font-bold text-red-400"
+    className: "text-xs font-bold text-rose-400"
   }, "✗ Pendiente"))), /*#__PURE__*/React.createElement("div", {
     className: "space-y-1"
   }, prop.vencimientoContrato && /*#__PURE__*/React.createElement("div", {
-    className: "text-xs text-gray-600"
+    className: "text-xs text-[#4a6080]"
   }, "📅 Vence: ", /*#__PURE__*/React.createElement("span", {
-    className: "text-gray-400"
+    className: "text-[#7a90aa]"
   }, fDate(prop.vencimientoContrato))), prop.proximaActualizacion && /*#__PURE__*/React.createElement("div", {
-    className: "text-xs text-gray-600"
+    className: "text-xs text-[#4a6080]"
   }, "🔄 Actualiz.: ", /*#__PURE__*/React.createElement("span", {
-    className: "text-gray-400"
+    className: "text-[#7a90aa]"
   }, ymLabel(prop.proximaActualizacion))))), /*#__PURE__*/React.createElement("div", {
     className: "px-4 pb-3 space-y-2"
   }, /*#__PURE__*/React.createElement("button", {
@@ -1848,7 +1872,7 @@ function TarjetaInmueble({
       e.stopPropagation();
       onARCA();
     },
-    className: "w-full text-xs py-1.5 rounded-lg bg-blue-950/50 border border-blue-900/50 text-blue-400 hover:bg-blue-900/50 transition-colors cursor-pointer font-semibold opacity-0 group-hover:opacity-100"
+    className: "w-full text-xs py-1.5 rounded-lg bg-indigo-950/50 border border-indigo-800/40 text-indigo-400 hover:bg-indigo-900/40 transition-colors cursor-pointer font-semibold opacity-0 group-hover:opacity-100"
   }, "🧾 Generar recibo ARCA"), /*#__PURE__*/React.createElement("div", {
     className: "flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity"
   }, /*#__PURE__*/React.createElement("button", {
@@ -1856,13 +1880,13 @@ function TarjetaInmueble({
       e.stopPropagation();
       onEdit();
     },
-    className: "text-xs px-3 py-1.5 rounded-lg bg-gray-950 border border-gray-800 text-gray-500 hover:text-white flex-1 cursor-pointer"
+    className: "text-xs px-3 py-1.5 rounded-lg bg-[#070b14] border border-[#1e2a45] text-[#5a7090] hover:text-white flex-1 cursor-pointer"
   }, "✏️ Editar"), /*#__PURE__*/React.createElement("button", {
     onClick: e => {
       e.stopPropagation();
       onDelete();
     },
-    className: "text-xs px-3 py-1.5 rounded-lg bg-red-950/50 border border-red-900/50 text-red-500 flex-1 cursor-pointer"
+    className: "text-xs px-3 py-1.5 rounded-lg bg-rose-950/40 border border-rose-800/40 text-rose-500 flex-1 cursor-pointer"
   }, "🗑️ Eliminar"))));
 }
 
@@ -1884,9 +1908,9 @@ function ModalConfig({
     className: "space-y-5"
   }, [["1", "Locador 1 (vos)", "locador1", "cuit1", "puntoVenta1"], ["2", "Locador 2 (esposa)", "locador2", "cuit2", "puntoVenta2"]].map(([k, titulo, kNombre, kCuit, kPv]) => /*#__PURE__*/React.createElement("div", {
     key: k,
-    className: `border rounded-xl p-4 space-y-3 ${k === "1" ? "border-blue-900/50" : "border-purple-900/50"}`
+    className: `border rounded-xl p-4 space-y-3 ${k === "1" ? "border-indigo-800/40" : "border-purple-900/50"}`
   }, /*#__PURE__*/React.createElement("div", {
-    className: `text-xs font-bold uppercase tracking-widest ${k === "1" ? "text-blue-400" : "text-purple-400"}`
+    className: `text-xs font-bold uppercase tracking-widest ${k === "1" ? "text-indigo-400" : "text-violet-400"}`
   }, titulo), /*#__PURE__*/React.createElement("div", {
     className: "grid grid-cols-2 gap-3"
   }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
@@ -2073,68 +2097,72 @@ function App() {
   const L1 = settings.locador1 || "Locador 1",
     L2 = settings.locador2 || "Locador 2";
   if (!loaded) return /*#__PURE__*/React.createElement("div", {
-    className: "min-h-screen bg-gray-950 flex flex-col items-center justify-center gap-3"
+    className: "min-h-screen bg-[#070b14] flex flex-col items-center justify-center gap-3"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "text-yellow-300 text-3xl animate-pulse"
+    className: "text-amber-300 text-3xl animate-pulse"
   }, "🔥"), /*#__PURE__*/React.createElement("div", {
-    className: "text-gray-400 text-sm"
+    className: "text-[#7a90aa] text-sm"
   }, "Conectando..."));
   return /*#__PURE__*/React.createElement("div", {
-    className: "min-h-screen bg-gray-950",
+    className: "min-h-screen bg-[#070b14]",
     style: {
-      fontFamily: "'DM Sans',sans-serif"
+      fontFamily: "'Inter',sans-serif"
     }
   }, /*#__PURE__*/React.createElement("header", {
-    className: "bg-gray-900 border-b border-gray-800 sticky top-0 z-40"
+    className: "glass border-b border-[#1e2a45]/60 sticky top-0 z-40",
+    style: {
+      backdropFilter: "blur(20px)"
+    }
   }, /*#__PURE__*/React.createElement("div", {
     className: "max-w-6xl mx-auto px-5 py-4 flex items-center justify-between gap-4"
   }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h1", {
-    className: "text-yellow-300 text-lg font-bold leading-none",
+    className: "text-amber-300 text-lg font-bold leading-none",
     style: {
-      fontFamily: "'DM Serif Display',serif"
+      fontFamily: "'Outfit',sans-serif",
+      letterSpacing: '-0.02em'
     }
   }, "Gestión de Alquileres"), /*#__PURE__*/React.createElement("p", {
-    className: "text-xs text-gray-600 mt-0.5 flex items-center gap-2"
+    className: "text-xs text-[#4a6080] mt-0.5 flex items-center gap-2"
   }, new Date().toLocaleDateString("es-AR", {
     weekday: "long",
     day: "numeric",
     month: "long",
     year: "numeric"
   }), syncing && /*#__PURE__*/React.createElement("span", {
-    className: "text-yellow-600 animate-pulse"
+    className: "text-amber-500 animate-pulse"
   }, "· guardando..."), !syncing && /*#__PURE__*/React.createElement("span", {
     className: "text-green-700"
   }, "· ☁️ sincronizado"), emailStatus === "sending" && /*#__PURE__*/React.createElement("span", {
-    className: "text-blue-400 animate-pulse"
+    className: "text-indigo-400 animate-pulse"
   }, "· ✉️ enviando..."), emailStatus === "ok" && /*#__PURE__*/React.createElement("span", {
-    className: "text-green-400"
+    className: "text-emerald-400"
   }, "· ✉️ alertas enviadas"), emailStatus === "error" && /*#__PURE__*/React.createElement("span", {
-    className: "text-red-400"
+    className: "text-rose-400"
   }, "· ✉️ error al enviar"))), /*#__PURE__*/React.createElement("div", {
     className: "flex items-center gap-2"
   }, /*#__PURE__*/React.createElement("button", {
     onClick: () => setModal({
       tipo: "config"
     }),
-    className: "text-xs text-gray-500 hover:text-gray-300 px-3 py-2 rounded-xl border border-gray-800 cursor-pointer"
+    className: "text-xs text-[#5a7090] hover:text-[#a0b4cc] px-3 py-2 rounded-xl border border-[#1e2a45] cursor-pointer"
   }, "⚙️"), props.length < 10 && /*#__PURE__*/React.createElement("button", {
     onClick: () => setModal({
       tipo: "nuevo"
     }),
-    className: "bg-yellow-300 text-gray-950 font-bold text-sm px-4 py-2 rounded-xl hover:bg-yellow-200 cursor-pointer whitespace-nowrap"
+    className: "bg-gradient-to-r from-amber-400 to-yellow-300 text-gray-950 font-bold text-sm px-4 py-2 rounded-xl hover:from-amber-300 hover:to-yellow-200 cursor-pointer whitespace-nowrap"
   }, "+ Inmueble")))), /*#__PURE__*/React.createElement("main", {
     className: "max-w-6xl mx-auto px-5 py-6 space-y-6"
   }, alertas.length > 0 && /*#__PURE__*/React.createElement("div", {
     className: "space-y-2"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "text-xs font-bold text-gray-600 uppercase tracking-widest"
+    className: "text-xs font-bold text-[#4a6080] uppercase tracking-widest"
   }, "Alertas activas"), alertas.map((a, i) => /*#__PURE__*/React.createElement("div", {
     key: i,
     onClick: () => setModal({
       tipo: "detalle",
       prop: props.find(p => p.id === a.prop.id)
     }),
-    className: `flex items-start gap-3 px-4 py-3 rounded-xl border cursor-pointer ${a.tipo === "vencimiento" ? "bg-red-950/60 border-red-800/60 text-red-300" : "bg-yellow-950/60 border-yellow-800/60 text-yellow-300"}`
+    className: `flex items-start gap-3 px-4 py-3 rounded-xl border cursor-pointer ${a.tipo === "vencimiento" ? "bg-rose-950/40 border-rose-700/40 text-rose-300" : "bg-amber-950/50 border-yellow-800/60 text-amber-300"}`
   }, /*#__PURE__*/React.createElement("span", {
     className: "text-base mt-0.5 shrink-0"
   }, a.tipo === "vencimiento" ? "⚠️" : "📊"), /*#__PURE__*/React.createElement("span", {
@@ -2162,31 +2190,31 @@ function App() {
     falta: totalPendienteMes > 0 ? fARS(totalPendienteMes) : null
   }].map(s => /*#__PURE__*/React.createElement("div", {
     key: s.label,
-    className: "bg-gray-900 border border-gray-800 rounded-2xl p-4"
+    className: "glass border border-[#1e2a45]/60 rounded-2xl p-4 card-hover"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "text-xs font-bold text-gray-600 uppercase tracking-widest mb-2"
+    className: "text-xs font-bold text-[#4a6080] uppercase tracking-widest mb-2"
   }, s.label), /*#__PURE__*/React.createElement("div", {
-    className: `text-xl font-bold leading-none ${s.gold ? "text-yellow-300" : "text-slate-200"}`
+    className: `text-xl font-bold leading-none ${s.gold ? "text-amber-300" : "text-[#e2eaf6]"}`
   }, s.val), s.cobrado && /*#__PURE__*/React.createElement("div", {
-    className: "text-sm font-bold text-green-400 mt-1"
+    className: "text-sm font-bold text-emerald-400 mt-1"
   }, s.cobrado, " cobrado"), s.falta && /*#__PURE__*/React.createElement("div", {
-    className: "text-sm font-bold text-red-400"
+    className: "text-sm font-bold text-rose-400"
   }, s.falta, " pendiente"), !s.cobrado && !s.falta && /*#__PURE__*/React.createElement("div", {
-    className: "text-xs text-gray-600 mt-1"
+    className: "text-xs text-[#4a6080] mt-1"
   }, s.sub), (s.cobrado || s.falta) && /*#__PURE__*/React.createElement("div", {
-    className: "text-xs text-gray-600 mt-1"
+    className: "text-xs text-[#4a6080] mt-1"
   }, s.sub)))), props.length > 0 && /*#__PURE__*/React.createElement("div", {
-    className: "flex gap-1 bg-gray-900 rounded-xl p-1 border border-gray-800 w-fit"
+    className: "flex gap-1 glass rounded-xl p-1 border border-[#1e2a45]/60 w-fit"
   }, [["todos", "Todos", props.length], ["1", L1, props.filter(p => p.locador === "1").length], ["2", L2, props.filter(p => p.locador === "2").length]].map(([k, label, count]) => /*#__PURE__*/React.createElement("button", {
     key: k,
     onClick: () => setFiltro(k),
-    className: `px-3 py-2 rounded-lg text-xs font-bold whitespace-nowrap cursor-pointer ${filtro === k ? "bg-gray-800 text-slate-200" : "text-gray-600 hover:text-gray-400"}`
+    className: `px-3 py-2 rounded-lg text-xs font-bold whitespace-nowrap cursor-pointer ${filtro === k ? "bg-gray-800 text-[#e2eaf6]" : "text-[#4a6080] hover:text-[#7a90aa]"}`
   }, label, " (", count, ")"))), filtrado.length === 0 ? /*#__PURE__*/React.createElement("div", {
     className: "text-center py-24"
   }, /*#__PURE__*/React.createElement("div", {
     className: "text-5xl mb-4"
   }, "🏠"), /*#__PURE__*/React.createElement("div", {
-    className: "text-gray-500 text-sm"
+    className: "text-[#5a7090] text-sm"
   }, props.length === 0 ? "No hay inmuebles cargados." : "Sin inmuebles para este locador.")) : /*#__PURE__*/React.createElement("div", {
     className: "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
   }, filtrado.map(p => /*#__PURE__*/React.createElement(TarjetaInmueble, {
