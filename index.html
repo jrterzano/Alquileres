@@ -126,15 +126,46 @@ const todayStr = () => {
   const t = new Date();
   return `${t.getFullYear()}-${pad(t.getMonth() + 1)}-${pad(t.getDate())}`;
 };
-function getIPCMonths(updateYM) {
-  return [4, 3, 2].map(offset => {
+
+// Devuelve los meses calendario necesarios para actualizar en updateYM con un período dado
+// El último mes disponible siempre es M-2 (M-1 no está publicado al día 5)
+function getUpdateMonths(updateYM, periodo) {
+  const n = Number(periodo) || 3;
+  return Array.from({
+    length: n
+  }, (_, i) => {
+    const offset = n + 1 - i; // n+1, n, n-1, ..., 2
     const [y, m] = updateYM.split("-").map(Number);
     const d = new Date(y, m - 1 - offset, 1);
     return makeYM(d.getFullYear(), d.getMonth() + 1);
   });
 }
+function getUpdateLabels(updateYM, periodo) {
+  return getUpdateMonths(updateYM, periodo).map(ym => ymLabel(ym));
+}
+// Backward compat aliases
+function getIPCMonths(updateYM) {
+  return getUpdateMonths(updateYM, 3);
+}
 function getIPCLabels(updateYM) {
-  return getIPCMonths(updateYM).map(ym => ymLabel(ym));
+  return getUpdateLabels(updateYM, 3);
+}
+
+// Migrar formato antiguo de indicesPendientes ([num,null,...]) al nuevo ([{mes,nombre,valor},...])
+function migrarPendientes(pendientes, updateYM, periodo, tipoIndice) {
+  if (!pendientes || !pendientes[updateYM]) return [];
+  const val = pendientes[updateYM];
+  if (!Array.isArray(val)) return [];
+  if (val.length === 0) return [];
+  // Nuevo formato: objetos con mes/nombre/valor
+  if (typeof val[0] === 'object' && val[0] !== null && 'mes' in val[0]) return val;
+  // Formato antiguo: array de números/null → convertir
+  const meses = getUpdateMonths(updateYM, periodo);
+  return meses.map((mes, i) => ({
+    mes,
+    nombre: tipoIndice || "IPC IDECBA",
+    valor: val[i] !== undefined && val[i] !== null ? val[i] : null
+  }));
 }
 
 // Calcular período del servicio según inicio de contrato y mes de pago
@@ -162,7 +193,7 @@ function calcPeriodo(diaInicio, mesPago) {
 }
 
 // ── CONTRATOS ─────────────────────────────────────────────────────────────────
-const CAMPOS_CONTRATO = ["inquilino", "telefono", "emailInquilino", "inicioContrato", "vencimientoContrato", "montoActual", "montoVigenteDesde", "proximaActualizacion", "tipoDoc1", "docNum1", "condicionFiscal1", "inquilino2", "tipoDoc2", "docNum2", "condicionFiscal2", "formaPago", "montoUSD", "cotizacionUSD", "diaInicioPeriodo", "diaVencimientoPago", "actualizaciones", "pagos", "indicesPendientes", "historialManual"];
+const CAMPOS_CONTRATO = ["inquilino", "telefono", "emailInquilino", "inicioContrato", "vencimientoContrato", "montoActual", "montoVigenteDesde", "proximaActualizacion", "tipoDoc1", "docNum1", "condicionFiscal1", "inquilino2", "tipoDoc2", "docNum2", "condicionFiscal2", "formaPago", "montoUSD", "cotizacionUSD", "diaInicioPeriodo", "diaVencimientoPago", "tipoIndice", "periodoActualizacion", "actualizaciones", "pagos", "indicesPendientes", "historialManual"];
 function archivarContrato(prop) {
   const snap = {};
   CAMPOS_CONTRATO.forEach(k => {
@@ -177,7 +208,7 @@ function archivarContrato(prop) {
 function resetContrato(prop) {
   const reset = {};
   CAMPOS_CONTRATO.forEach(k => {
-    if (["actualizaciones", "pagos"].includes(k)) reset[k] = [];else if (k === "indicesPendientes") reset[k] = {};else if (k === "historialManual") reset[k] = [];else if (k === "diaInicioPeriodo") reset[k] = 1;else if (k === "diaVencimientoPago") reset[k] = 5;else if (k === "condicionFiscal1" || k === "condicionFiscal2") reset[k] = "Consumidor Final";else if (k === "tipoDoc1" || k === "tipoDoc2") reset[k] = "DNI";else reset[k] = "";
+    if (["actualizaciones", "pagos"].includes(k)) reset[k] = [];else if (k === "indicesPendientes") reset[k] = {};else if (k === "historialManual") reset[k] = [];else if (k === "diaInicioPeriodo") reset[k] = 1;else if (k === "diaVencimientoPago") reset[k] = 5;else if (k === "condicionFiscal1" || k === "condicionFiscal2") reset[k] = "Consumidor Final";else if (k === "tipoDoc1" || k === "tipoDoc2") reset[k] = "DNI";else if (k === "tipoIndice") reset[k] = "IPC IDECBA";else if (k === "periodoActualizacion") reset[k] = 3;else reset[k] = "";
   });
   return reset;
 }
@@ -202,7 +233,9 @@ function calcAlertas(props) {
       });
     }
     if (p.proximaActualizacion) {
+      const periodo = Number(p.periodoActualizacion) || 3;
       const [uy, um] = p.proximaActualizacion.split("-").map(Number);
+      // Avisar el mes previo al mes de actualización (M-1)
       let pm = um - 2,
         py = uy;
       if (pm < 0) {
@@ -210,14 +243,14 @@ function calcAlertas(props) {
         py--;
       }
       const pendientes = p.indicesPendientes || {};
-      const vals = pendientes[p.proximaActualizacion] || [null, null, null];
-      const todosCargados = vals.every(v => v !== null && v !== "");
+      const entradas = migrarPendientes(pendientes, p.proximaActualizacion, periodo, p.tipoIndice || "IPC IDECBA");
+      const todosCargados = entradas.length >= periodo && entradas.every(e => e.valor !== null && e.valor !== "");
       const aplicada = (p.actualizaciones || []).some(a => a.mes === p.proximaActualizacion);
       if (hy === py && hm === pm && hd >= 15 && !todosCargados && !aplicada) res.push({
         tipo: "indices",
         prop: p,
         mes: p.proximaActualizacion,
-        id: `ipc-${p.id}-${p.proximaActualizacion}`
+        id: `idx-${p.id}-${p.proximaActualizacion}`
       });
     }
   });
@@ -252,6 +285,8 @@ const EMPTY_PROP = {
   diaInicioPeriodo: 1,
   diaVencimientoPago: 5,
   montoVigenteDesde: "",
+  tipoIndice: "IPC IDECBA",
+  periodoActualizacion: 3,
   contratos: []
 };
 const DEFAULT_SETTINGS = {
@@ -495,7 +530,30 @@ function FormInmueble({
     type: "month",
     value: f.proximaActualizacion,
     onChange: e => set("proximaActualizacion", e.target.value)
-  }))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+  }))), /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-2 gap-3"
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+    className: lbl
+  }, "Índice de actualización"), /*#__PURE__*/React.createElement("input", {
+    className: inp,
+    value: f.tipoIndice || "IPC IDECBA",
+    onChange: e => set("tipoIndice", e.target.value),
+    placeholder: "Ej: IPC IDECBA, IPM INDEC..."
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "text-xs text-[#4a6080] mt-1"
+  }, "Nombre del índice que rige este contrato")), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+    className: lbl
+  }, "Período de actualización (meses)"), /*#__PURE__*/React.createElement("input", {
+    className: inp,
+    type: "number",
+    min: "1",
+    max: "12",
+    value: f.periodoActualizacion || 3,
+    onChange: e => set("periodoActualizacion", Number(e.target.value)),
+    placeholder: "3"
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "text-xs text-[#4a6080] mt-1"
+  }, "Cantidad de meses del índice a acumular"))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
     className: lbl
   }, "Vigente desde"), /*#__PURE__*/React.createElement("input", {
     className: inp,
@@ -569,7 +627,8 @@ function FormInmueble({
   }, "Cancelar")));
 }
 
-// ── FORM ÍNDICES IPC ──────────────────────────────────────────────────────────
+// ── FORM ACTUALIZACIÓN (índice flexible, período variable) ────────────────────
+// Mantiene alias FormIndices para compatibilidad con referencias existentes
 function FormIndices({
   prop,
   allProps,
@@ -578,73 +637,149 @@ function FormIndices({
   onCancel
 }) {
   const mes = prop.proximaActualizacion || nowYM();
-  const labels = getIPCLabels(mes);
-  const existing = (prop.indicesPendientes || {})[mes] || [null, null, null];
-  const [vals, setVals] = useState(existing.map(v => v !== null ? String(v) : ""));
+  const periodo = Number(prop.periodoActualizacion) || 3;
+  const tipoIdx = prop.tipoIndice || "IPC IDECBA";
+  const mesesReq = getUpdateMonths(mes, periodo);
+  const labels = getUpdateLabels(mes, periodo);
+
+  // Cargar valores existentes (migrar formato antiguo si es necesario)
+  const existingRaw = migrarPendientes(prop.indicesPendientes || {}, mes, periodo, tipoIdx);
+  const initVals = mesesReq.map(m => {
+    const entry = existingRaw.find(e => e.mes === m);
+    return entry && entry.valor !== null ? String(entry.valor) : "";
+  });
+  const [vals, setVals] = useState(initVals);
   const setV = (i, v) => setVals(a => {
     const n = [...a];
     n[i] = v;
     return n;
   });
   const nums = vals.map(v => v !== "" ? parseFloat(v) : null);
-  const allFilled = nums.every(v => v !== null && !isNaN(v));
-  const factor = allFilled ? (1 + nums[0] / 100) * (1 + nums[1] / 100) * (1 + nums[2] / 100) : null;
+  const cargados = nums.filter(v => v !== null && !isNaN(v)).length;
+  const allFilled = cargados === periodo;
+
+  // Factor acumulativo: (1+v1/100)*(1+v2/100)*...
+  const factor = allFilled ? nums.reduce((f, v) => f * (1 + v / 100), 1) : null;
   const pct = factor ? ((factor - 1) * 100).toFixed(2) : null;
   const montoAnt = Number(prop.montoActual) || 0;
   const montoNuevo = factor ? Math.round(montoAnt * factor) : null;
 
-  // Otros inmuebles con la misma próxima actualización
-  const otrosConMismoMes = (allProps || []).filter(p => p.id !== prop.id && p.proximaActualizacion === mes);
-  const guardarParcial = () => {
-    const propActualizada = {
-      ...prop,
-      indicesPendientes: {
-        ...(prop.indicesPendientes || {}),
-        [mes]: nums
-      }
-    };
-    const mesesCalendario = getIPCMonths(mes);
-    let todosActualizados = null;
-    if (allProps) {
-      todosActualizados = (allProps || []).map(p => {
-        if (p.id === prop.id) return propActualizada;
-        if (!p.proximaActualizacion) return p;
-        const mesesOtro = getIPCMonths(p.proximaActualizacion);
-        const yaExistentes = (p.indicesPendientes || {})[p.proximaActualizacion] || [null, null, null];
-        let cambio = false;
-        const merged = mesesOtro.map((mo, i) => {
-          const idxEnActual = mesesCalendario.indexOf(mo);
-          if (idxEnActual >= 0) {
-            if (nums[idxEnActual] !== null) {
-              cambio = true;
-              return nums[idxEnActual];
-            }
-            // Propagar borrado: si antes había un valor y ahora es null, limpiar en el otro
-            if (existing[idxEnActual] !== null && yaExistentes[i] === existing[idxEnActual]) {
-              cambio = true;
-              return null;
-            }
+  // Inmuebles con MISMO tipoIndice (propagación)
+  const otrosMismoTipo = (allProps || []).filter(p => p.id !== prop.id && (p.tipoIndice || "IPC IDECBA") === tipoIdx);
+
+  // Construir nuevas entradas para guardar
+  const buildEntradas = () => mesesReq.map((m, i) => ({
+    mes: m,
+    nombre: tipoIdx,
+    valor: nums[i] !== null && !isNaN(nums[i]) ? nums[i] : null
+  }));
+
+  // Propagar valores a otros inmuebles con mismo tipoIndice
+  const propagarAOtros = (todosProps, propActualizada) => {
+    return todosProps.map(p => {
+      if (p.id === prop.id) return propActualizada;
+      if ((p.tipoIndice || "IPC IDECBA") !== tipoIdx || !p.proximaActualizacion) return p;
+      const periodoP = Number(p.periodoActualizacion) || 3;
+      const mesesP = getUpdateMonths(p.proximaActualizacion, periodoP);
+      const existP = migrarPendientes(p.indicesPendientes || {}, p.proximaActualizacion, periodoP, tipoIdx);
+      let cambio = false;
+      const mergedEntradas = mesesP.map(mp => {
+        // ¿Este mes está en los que ingresamos?
+        const idxEnActual = mesesReq.indexOf(mp);
+        const existeP = existP.find(e => e.mes === mp);
+        const valExisteP = existeP ? existeP.valor : null;
+        if (idxEnActual >= 0) {
+          const nuevoVal = nums[idxEnActual];
+          const viejoVal = existingRaw.find(e => e.mes === mp)?.valor ?? null;
+          if (nuevoVal !== null && nuevoVal !== valExisteP) {
+            cambio = true;
+            return {
+              mes: mp,
+              nombre: tipoIdx,
+              valor: nuevoVal
+            };
           }
-          return yaExistentes[i];
-        });
-        if (!cambio) return p;
-        return {
-          ...p,
-          indicesPendientes: {
-            ...(p.indicesPendientes || {}),
-            [p.proximaActualizacion]: merged
+          if (nuevoVal === null && viejoVal !== null && valExisteP === viejoVal) {
+            cambio = true;
+            return {
+              mes: mp,
+              nombre: tipoIdx,
+              valor: null
+            };
           }
+        }
+        return existeP || {
+          mes: mp,
+          nombre: tipoIdx,
+          valor: null
         };
       });
+      if (!cambio) return p;
+      // ¿Completó todos los índices necesarios? → aplicar actualización
+      const todosOk = mergedEntradas.every(e => e.valor !== null && !isNaN(e.valor));
+      if (todosOk) {
+        const valsP = mergedEntradas.map(e => e.valor);
+        const fOtro = valsP.reduce((f, v) => f * (1 + v / 100), 1);
+        const mAnt = Number(p.montoActual) || 0;
+        const mNuevo = Math.round(mAnt * fOtro);
+        const actOtro = {
+          id: Date.now() + p.id,
+          mes: p.proximaActualizacion,
+          indice: tipoIdx,
+          ipc: valsP,
+          factor: fOtro,
+          montoAnterior: mAnt,
+          montoNuevo: mNuevo,
+          fechaCarga: todayStr()
+        };
+        const pendOtro = {
+          ...(p.indicesPendientes || {})
+        };
+        delete pendOtro[p.proximaActualizacion];
+        const periodoOtro = Number(p.periodoActualizacion) || 3;
+        return {
+          ...p,
+          montoActual: mNuevo,
+          montoVigenteDesde: p.proximaActualizacion,
+          proximaActualizacion: ymAdd(p.proximaActualizacion, periodoOtro),
+          actualizaciones: [...(p.actualizaciones || []), actOtro],
+          indicesPendientes: pendOtro
+        };
+      }
+      const pendP = {
+        ...(p.indicesPendientes || {}),
+        [p.proximaActualizacion]: mergedEntradas
+      };
+      return {
+        ...p,
+        indicesPendientes: pendP
+      };
+    });
+  };
+  const guardarParcial = () => {
+    const entradas = buildEntradas();
+    const pend = {
+      ...(prop.indicesPendientes || {}),
+      [mes]: entradas
+    };
+    const propActualizada = {
+      ...prop,
+      indicesPendientes: pend
+    };
+    if (allProps && onSaveAll) {
+      onSaveAll(propagarAOtros(allProps, propActualizada));
+    } else {
+      onSave(propActualizada, false);
     }
-    if (todosActualizados && onSaveAll) onSaveAll(todosActualizados);else onSave(propActualizada, false);
   };
   const aplicar = () => {
     if (!allFilled) return alert("Faltan índices.");
+    const valsArr = nums;
     const act = {
       id: Date.now(),
       mes,
-      ipc: nums,
+      indice: tipoIdx,
+      ipc: valsArr,
       factor,
       montoAnterior: montoAnt,
       montoNuevo,
@@ -658,65 +793,16 @@ function FormIndices({
       ...prop,
       montoActual: montoNuevo,
       montoVigenteDesde: mes,
-      proximaActualizacion: ymAdd(mes, 3),
+      proximaActualizacion: ymAdd(mes, periodo),
       actualizaciones: [...(prop.actualizaciones || []), act],
       indicesPendientes: pend
     };
-
-    // Propagar por mes calendario y aplicar donde corresponda
-    const mesesCalendario = getIPCMonths(mes);
-    let todosActualizados = null;
-    if (allProps) {
-      todosActualizados = (allProps || []).map(p => {
-        if (p.id === prop.id) return propActualizada;
-        if (!p.proximaActualizacion) return p;
-        const mesesOtro = getIPCMonths(p.proximaActualizacion);
-        const yaExistentes = (p.indicesPendientes || {})[p.proximaActualizacion] || [null, null, null];
-        const merged = mesesOtro.map((mo, i) => {
-          const idxEnActual = mesesCalendario.indexOf(mo);
-          if (idxEnActual >= 0 && nums[idxEnActual] !== null) return nums[idxEnActual];
-          return yaExistentes[i];
-        });
-        // Si los 3 índices de este inmueble están completos, aplicar la actualización
-        if (merged.every(v => v !== null && !isNaN(v))) {
-          const fOtro = (1 + merged[0] / 100) * (1 + merged[1] / 100) * (1 + merged[2] / 100);
-          const mAnt = Number(p.montoActual) || 0;
-          const mNuevo = Math.round(mAnt * fOtro);
-          const actOtro = {
-            id: Date.now() + p.id,
-            mes: p.proximaActualizacion,
-            ipc: merged,
-            factor: fOtro,
-            montoAnterior: mAnt,
-            montoNuevo: mNuevo,
-            fechaCarga: todayStr()
-          };
-          const pendOtro = {
-            ...(p.indicesPendientes || {})
-          };
-          delete pendOtro[p.proximaActualizacion];
-          return {
-            ...p,
-            montoActual: mNuevo,
-            montoVigenteDesde: p.proximaActualizacion,
-            proximaActualizacion: ymAdd(p.proximaActualizacion, 3),
-            actualizaciones: [...(p.actualizaciones || []), actOtro],
-            indicesPendientes: pendOtro
-          };
-        }
-        // Si no están completos, solo guardar los parciales
-        return {
-          ...p,
-          indicesPendientes: {
-            ...(p.indicesPendientes || {}),
-            [p.proximaActualizacion]: merged
-          }
-        };
-      });
+    if (allProps && onSaveAll) {
+      onSaveAll(propagarAOtros(allProps, propActualizada));
+    } else {
+      onSave(propActualizada, true);
     }
-    if (todosActualizados && onSaveAll) onSaveAll(todosActualizados, propActualizada, true);else onSave(propActualizada, true);
   };
-  const cargados = nums.filter(v => v !== null && !isNaN(v)).length;
   return /*#__PURE__*/React.createElement("div", {
     className: "space-y-5"
   }, /*#__PURE__*/React.createElement("div", {
@@ -724,32 +810,43 @@ function FormIndices({
   }, /*#__PURE__*/React.createElement("div", {
     className: "font-semibold text-[#e2eaf6] text-sm"
   }, prop.direccion), /*#__PURE__*/React.createElement("div", {
-    className: "text-xs text-[#5a7090] mt-1"
+    className: "flex items-center gap-2 mt-1 flex-wrap"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-xs bg-indigo-950/60 border border-indigo-700/40 text-indigo-300 px-2 py-0.5 rounded-full font-semibold"
+  }, tipoIdx), /*#__PURE__*/React.createElement("span", {
+    className: "text-xs text-[#5a7090]"
   }, "Actualización: ", /*#__PURE__*/React.createElement("span", {
     className: "text-amber-300 font-semibold"
-  }, ymLabel(mes)), " · Índices: ", labels.join(", ")), otrosConMismoMes.length > 0 && /*#__PURE__*/React.createElement("div", {
+  }, ymLabel(mes))), /*#__PURE__*/React.createElement("span", {
+    className: "text-xs text-[#4a6080]"
+  }, "· Período: ", periodo, " ", periodo === 1 ? "mes" : "meses")), otrosMismoTipo.length > 0 && /*#__PURE__*/React.createElement("div", {
     className: "mt-2 text-xs text-indigo-400"
-  }, "📋 Se aplicará también a: ", otrosConMismoMes.map(p => p.direccion).join(", "))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+  }, "📋 Se replicará en: ", otrosMismoTipo.map(p => p.direccion).join(", "))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     className: "flex items-center justify-between mb-3"
   }, /*#__PURE__*/React.createElement("label", {
     className: lbl
-  }, "IPC-IDECBA (%)"), /*#__PURE__*/React.createElement("span", {
+  }, "Índice de actualización (%)"), /*#__PURE__*/React.createElement("span", {
     className: "text-xs text-[#4a6080]"
-  }, cargados, "/3")), /*#__PURE__*/React.createElement("div", {
-    className: "grid grid-cols-3 gap-3"
+  }, cargados, "/", periodo)), /*#__PURE__*/React.createElement("div", {
+    className: `grid gap-3`,
+    style: {
+      gridTemplateColumns: `repeat(${Math.min(periodo, 4)},1fr)`
+    }
   }, labels.map((label, i) => /*#__PURE__*/React.createElement("div", {
     key: i,
     className: "text-center"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "text-xs text-[#5a7090] mb-2"
+    className: "text-xs text-[#5a7090] mb-2 leading-tight"
   }, label), /*#__PURE__*/React.createElement("input", {
-    className: `w-full bg-[#070b14] border ${vals[i] ? "border-amber-500/50" : "border-[#253350]"} rounded-xl px-2 py-3 text-[#e2eaf6] text-lg font-bold text-center focus:outline-none focus:border-indigo-500`,
+    className: `w-full bg-[#060a15]/80 border ${vals[i] ? "border-indigo-500/50" : "border-[#253350]"} rounded-xl px-2 py-3 text-[#e2eaf6] text-base font-bold text-center focus:outline-none focus:border-indigo-500`,
     type: "number",
     step: "0.01",
     value: vals[i],
     onChange: e => setV(i, e.target.value),
     placeholder: "–"
-  }))))), allFilled && factor && /*#__PURE__*/React.createElement("div", {
+  }), vals[i] && /*#__PURE__*/React.createElement("div", {
+    className: "text-xs text-indigo-400 mt-1"
+  }, vals[i], "%"))))), allFilled && factor && /*#__PURE__*/React.createElement("div", {
     className: "bg-emerald-950/40 border border-emerald-700/40 rounded-xl p-4 space-y-2"
   }, /*#__PURE__*/React.createElement("div", {
     className: "flex justify-between text-sm"
@@ -758,7 +855,7 @@ function FormIndices({
   }, "Variación acumulada"), /*#__PURE__*/React.createElement("span", {
     className: "font-bold text-emerald-400"
   }, "+", pct, "%")), /*#__PURE__*/React.createElement("div", {
-    className: "h-px bg-green-800/30"
+    className: "h-px bg-emerald-800/30"
   }), /*#__PURE__*/React.createElement("div", {
     className: "flex justify-between text-sm"
   }, /*#__PURE__*/React.createElement("span", {
@@ -773,11 +870,11 @@ function FormIndices({
     className: "text-amber-300 font-bold"
   }, fARS(montoNuevo))), /*#__PURE__*/React.createElement("div", {
     className: "flex justify-between text-xs text-[#5a7090]"
-  }, /*#__PURE__*/React.createElement("span", null, "Próxima actualización"), /*#__PURE__*/React.createElement("span", null, ymLabel(ymAdd(mes, 3))))), !allFilled && cargados > 0 && /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement("span", null, "Próxima actualización"), /*#__PURE__*/React.createElement("span", null, ymLabel(ymAdd(mes, periodo))))), !allFilled && cargados > 0 && /*#__PURE__*/React.createElement("div", {
     className: "bg-amber-950/40 border border-amber-700/40 rounded-xl p-3 text-xs text-amber-400"
-  }, "Podés guardar parcial y completar cuando estén disponibles."), /*#__PURE__*/React.createElement("div", {
+  }, "Podés guardar los índices parciales y completar cuando el resto esté disponible."), /*#__PURE__*/React.createElement("div", {
     className: "flex gap-2"
-  }, !allFilled && cargados > 0 && /*#__PURE__*/React.createElement("button", {
+  }, cargados > 0 && !allFilled && /*#__PURE__*/React.createElement("button", {
     onClick: guardarParcial,
     className: "flex-1 border border-amber-600/40 text-amber-400 font-bold py-2.5 rounded-xl text-sm cursor-pointer"
   }, "💾 Guardar parcial"), allFilled && /*#__PURE__*/React.createElement("button", {
@@ -1647,7 +1744,9 @@ function DetalleInmueble({
   const pagoActual = (prop.pagos || []).find(p => p.mes === curYM);
   const L = prop.locador === "1" ? settings.locador1 || "Locador 1" : settings.locador2 || "Locador 2";
   const pendientes = prop.indicesPendientes || {};
-  const teneParciales = prop.proximaActualizacion && pendientes[prop.proximaActualizacion] && pendientes[prop.proximaActualizacion].some(v => v !== null && v !== "");
+  const periodo = Number(prop.periodoActualizacion) || 3;
+  const entradasPend = prop.proximaActualizacion ? migrarPendientes(pendientes, prop.proximaActualizacion, periodo, prop.tipoIndice || "IPC IDECBA") : [];
+  const teneParciales = entradasPend.length > 0 && entradasPend.some(e => e.valor !== null && e.valor !== "");
   if (sub === "pago") return /*#__PURE__*/React.createElement(Modal, {
     title: "Registrar cobro",
     onClose: () => setSub(null)
@@ -1660,7 +1759,7 @@ function DetalleInmueble({
     onCancel: () => setSub(null)
   }));
   if (sub === "indices") return /*#__PURE__*/React.createElement(Modal, {
-    title: "Cargar índices IPC-IDECBA",
+    title: "Índices de actualización",
     onClose: () => setSub(null)
   }, /*#__PURE__*/React.createElement(FormIndices, {
     prop: prop,
@@ -1703,7 +1802,7 @@ function DetalleInmueble({
     gold: true
   }, {
     label: "Próx. actualización",
-    val: ymLabel(prop.proximaActualizacion)
+    val: `${ymLabel(prop.proximaActualizacion)}${prop.tipoIndice ? ` · ${prop.tipoIndice}` : ""}`
   }, {
     label: "Venc. contrato",
     val: fDate(prop.vencimientoContrato)
@@ -1774,16 +1873,24 @@ function DetalleInmueble({
     className: "text-sm font-bold text-[#e2eaf6]"
   }, "Actualización ", ymLabel(a.mes)), /*#__PURE__*/React.createElement("div", {
     className: "text-sm font-bold text-emerald-400"
-  }, "+", ((a.factor - 1) * 100).toFixed(2), "%")), /*#__PURE__*/React.createElement("div", {
-    className: "grid grid-cols-3 gap-2 mb-2"
-  }, getIPCLabels(a.mes).map((label, i) => /*#__PURE__*/React.createElement("div", {
-    key: i,
-    className: "bg-[#0d1220] rounded-lg p-2 text-center border border-[#1e2a45]"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "text-xs text-[#4a6080] mb-1"
-  }, label), /*#__PURE__*/React.createElement("div", {
-    className: "text-sm font-bold text-[#b8cce0]"
-  }, a.ipc[i], "%")))), /*#__PURE__*/React.createElement("div", {
+  }, "+", ((a.factor - 1) * 100).toFixed(2), "%")), a.indice && /*#__PURE__*/React.createElement("div", {
+    className: "text-xs text-indigo-400 mb-2 font-semibold"
+  }, a.indice), /*#__PURE__*/React.createElement("div", {
+    className: "grid gap-2 mb-2",
+    style: {
+      gridTemplateColumns: `repeat(${Math.min((a.ipc || []).length, 4)},1fr)`
+    }
+  }, (a.ipc || []).map((v, i) => {
+    const labels = getUpdateLabels(a.mes, (a.ipc || []).length);
+    return /*#__PURE__*/React.createElement("div", {
+      key: i,
+      className: "bg-[#060a15]/80 rounded-lg p-2 text-center border border-[#1e2a45]/50"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "text-xs text-[#4a6080] mb-1"
+    }, labels[i] || ""), /*#__PURE__*/React.createElement("div", {
+      className: "text-sm font-bold text-[#b8cce0]"
+    }, v, "%"));
+  })), /*#__PURE__*/React.createElement("div", {
     className: "flex justify-between text-xs text-[#5a7090]"
   }, /*#__PURE__*/React.createElement("span", null, fARS(a.montoAnterior), " → ", /*#__PURE__*/React.createElement("span", {
     className: "text-amber-300"
@@ -1817,7 +1924,9 @@ function TarjetaInmueble({
   const pagoActual = (prop.pagos || []).find(p => p.mes === curYM);
   const L = prop.locador === "1" ? settings.locador1 || "Locador 1" : settings.locador2 || "Locador 2";
   const pendientes = prop.indicesPendientes || {};
-  const teneParciales = prop.proximaActualizacion && pendientes[prop.proximaActualizacion] && pendientes[prop.proximaActualizacion].some(v => v !== null && v !== "");
+  const periodo = Number(prop.periodoActualizacion) || 3;
+  const entradasPend = prop.proximaActualizacion ? migrarPendientes(pendientes, prop.proximaActualizacion, periodo, prop.tipoIndice || "IPC IDECBA") : [];
+  const teneParciales = entradasPend.length > 0 && entradasPend.some(e => e.valor !== null && e.valor !== "");
   return /*#__PURE__*/React.createElement("div", {
     className: "bg-[#0d1220] border border-[#1e2a45] rounded-2xl overflow-hidden hover:border-[#253350] group flex flex-col"
   }, alerta && /*#__PURE__*/React.createElement("div", {
@@ -1865,7 +1974,9 @@ function TarjetaInmueble({
     className: "text-xs text-[#4a6080]"
   }, "🔄 Actualiz.: ", /*#__PURE__*/React.createElement("span", {
     className: "text-[#7a90aa]"
-  }, ymLabel(prop.proximaActualizacion))))), /*#__PURE__*/React.createElement("div", {
+  }, ymLabel(prop.proximaActualizacion)), prop.tipoIndice && prop.tipoIndice !== "IPC IDECBA" && /*#__PURE__*/React.createElement("span", {
+    className: "ml-1 text-indigo-400"
+  }, "(", prop.tipoIndice, ")")))), /*#__PURE__*/React.createElement("div", {
     className: "px-4 pb-3 space-y-2"
   }, /*#__PURE__*/React.createElement("button", {
     onClick: e => {
