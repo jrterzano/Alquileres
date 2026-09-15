@@ -72,6 +72,7 @@
 <body>
 <div id="root"></div>
 <script>
+
 const {
   useState,
   useEffect
@@ -1002,10 +1003,11 @@ function ModalARCA({
   const tiene2 = (prop.inquilino2 || "").trim() !== "";
   const [inquilinoSel, setInquilinoSel] = useState(tiene2 ? null : "1");
   const [fechaComp, setFechaComp] = useState(todayStr());
+  const [mesSelec, setMesSelec] = useState(nowYM());
 
   // Último pago registrado
   const pagos = [...(prop.pagos || [])].sort((a, b) => b.mes.localeCompare(a.mes));
-  const ultimoPago = pagos[0] || null;
+  const ultimoPago = pagos.find(p => p.mes === mesSelec) || null;
 
   // Datos del locador
   const esLoc1 = prop.locador === "1";
@@ -1026,22 +1028,17 @@ function ModalARCA({
     condicion: prop.condicionFiscal2 || "Consumidor Final"
   };
 
-  // Período
-  const periodo = ultimoPago ? calcPeriodo(prop.diaInicioPeriodo || 1, ultimoPago.mes) : {
-    desde: "–",
-    hasta: "–"
-  };
+  // Período — usar mes seleccionado
+  const periodo = calcPeriodo(prop.diaInicioPeriodo || 1, mesSelec);
 
-  // Vencimiento del pago (día X del mes del alquiler — pago adelantado)
+  // Vencimiento del pago
   const diaVenc = prop.diaVencimientoPago || 5;
-  let vencPago = "–";
-  if (ultimoPago) {
-    const [y, m] = ultimoPago.mes.split("-").map(Number);
-    vencPago = `${pad(diaVenc)}/${pad(m)}/${y}`;
-  }
-  const mesLabel = ultimoPago ? ymLabel(ultimoPago.mes) : "–";
+  const [vy, vm] = mesSelec.split("-").map(Number);
+  const vencPago = `${pad(diaVenc)}/${pad(vm)}/${vy}`;
+  const mesLabel = ymLabel(mesSelec);
   const fechaComprobante = fDate(fechaComp);
-  // Importe: si hay pago registrado usar montoPagado, si no usar el monto del mes correspondiente
+
+  // Importe: si hay pago para el mes seleccionado usar montoPagado, si no calcular
   const montoDelMes = (p, ym) => {
     if (p.montoVigenteDesde && p.montoVigenteDesde > ym) {
       const acts = [...(p.actualizaciones || [])].sort((a, b) => b.mes.localeCompare(a.mes));
@@ -1055,8 +1052,7 @@ function ModalARCA({
     }
     return Number(p.montoActual) || 0;
   };
-  const mesPago = ultimoPago ? ultimoPago.mes : nowYM();
-  const importe = ultimoPago ? ultimoPago.montoPagado : montoDelMes(prop, mesPago);
+  const importe = ultimoPago ? ultimoPago.montoPagado : montoDelMes(prop, mesSelec);
 
   // Verificar si hay actualización pendiente
   const actuPendiente = prop.proximaActualizacion && (prop.actualizaciones || []).length === 0;
@@ -1116,6 +1112,18 @@ En USD: ${prop.montoUSD} · Cotización BNA vendedor: $${prop.cotizacionUSD} · 
   }, valor), advertencia && /*#__PURE__*/React.createElement("div", {
     className: "text-xs text-amber-400 mt-1"
   }, "⚠️ ", advertencia));
+  // Selector de mes (antes de mostrar el panel o el selector de inquilino)
+  const mesSelectUI = /*#__PURE__*/React.createElement("div", {className: "bg-[#060a15]/70 rounded-xl p-3 border border-[#1e2a45] mb-3"},
+    React.createElement("label", {className: "block text-[10px] font-semibold text-[#4a6888] mb-1.5 uppercase tracking-[0.1em]"}, "Mes del recibo"),
+    React.createElement("input", {
+      type: "month",
+      value: mesSelec,
+      onChange: e => setMesSelec(e.target.value),
+      className: "w-full bg-[#060a15]/80 border border-[#1e2a45] rounded-xl px-3 py-2 text-[#e2eaf6] text-sm focus:outline-none focus:border-indigo-500"
+    }),
+    ultimoPago && React.createElement("div", {className: "text-xs text-emerald-400 mt-1"}, "✓ Pago registrado para este mes")
+  );
+
   if (tiene2 && !inquilinoSel) return /*#__PURE__*/React.createElement(Modal, {
     title: "¿Quién pagó este mes?",
     onClose: onClose
@@ -1141,7 +1149,7 @@ En USD: ${prop.montoUSD} · Cotización BNA vendedor: $${prop.cotizacionUSD} · 
     wide: true
   }, /*#__PURE__*/React.createElement("div", {
     className: "space-y-3"
-  }, /*#__PURE__*/React.createElement("div", {
+  }, mesSelectUI, /*#__PURE__*/React.createElement("div", {
     className: "bg-indigo-950/50 border border-indigo-700/40 rounded-xl px-4 py-3 text-xs text-indigo-300"
   }, "Tipo de comprobante: ", /*#__PURE__*/React.createElement("strong", null, "Recibo C"), " · Concepto: ", /*#__PURE__*/React.createElement("strong", null, "Servicios (código 2)")), /*#__PURE__*/React.createElement("div", {
     className: "bg-[#060a15]/70 rounded-xl p-3 border border-[#1e2a45]"
@@ -1952,11 +1960,20 @@ function TarjetaInmueble({
     className: "bg-[#060a15]/80 rounded-xl p-2.5 border border-[#1e2a45]/50"
   }, /*#__PURE__*/React.createElement("div", {
     className: "text-xs text-[#4a6080] mb-0.5"
-  }, "Alquiler"), /*#__PURE__*/React.createElement("div", {
+  }, "Alquiler vigente"), /*#__PURE__*/React.createElement("div", {
     className: "text-sm font-bold text-amber-300"
   }, fARS(prop.montoActual)), prop.montoVigenteDesde && /*#__PURE__*/React.createElement("div", {
     className: "text-xs text-[#4a6080]"
-  }, "desde ", ymLabel(prop.montoVigenteDesde))), /*#__PURE__*/React.createElement("div", {
+  }, "desde ", ymLabel(prop.montoVigenteDesde)),
+  (() => {
+    const acts = [...(prop.actualizaciones||[])].sort((a,b)=>b.mes.localeCompare(a.mes));
+    const prox = acts.find(a=>a.mes>nowYM());
+    if(prox&&prox.montoNuevo!==Number(prop.montoActual)) return React.createElement("div",{className:"mt-1 pt-1 border-t border-[#1e2a45]/50"},
+      React.createElement("div",{className:"text-[10px] text-indigo-400 font-semibold"},"Próximo"),
+      React.createElement("div",{className:"text-xs font-bold text-indigo-300"},fARS(prox.montoNuevo)),
+      React.createElement("div",{className:"text-[10px] text-[#4a6080]"},"desde ",ymLabel(prox.mes)));
+    return null;
+  })()), /*#__PURE__*/React.createElement("div", {
     className: "bg-[#060a15]/80 rounded-xl p-2.5 border border-[#1e2a45]/50"
   }, /*#__PURE__*/React.createElement("div", {
     className: "text-xs text-[#4a6080] mb-0.5"
@@ -2382,6 +2399,7 @@ function App() {
   }));
 }
 ReactDOM.createRoot(document.getElementById("root")).render(/*#__PURE__*/React.createElement(App, null));
+
 </script>
 </body>
 </html>
