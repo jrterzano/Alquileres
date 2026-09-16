@@ -73,6 +73,19 @@
 <div id="root"></div>
 <script>
 
+
+// Retorna el monto que corresponde a un mes dado, usando el historial de actualizaciones
+function montoRealParaMes(prop, ym) {
+  const acts = [...(prop.actualizaciones||[])].sort((a,b)=>a.mes.localeCompare(b.mes));
+  // Si el mes pedido es anterior a la primera actualización, usar montoAnterior de la primera
+  if(acts.length>0 && ym<acts[0].mes) return acts[0].montoAnterior;
+  // Buscar la última actualización cuyo mes sea <= ym
+  for(let i=acts.length-1;i>=0;i--) {
+    if(acts[i].mes<=ym) return acts[i].montoNuevo;
+  }
+  // Sin actualizaciones: usar montoActual
+  return Number(prop.montoActual)||0;
+}
 const {
   useState,
   useEffect
@@ -1052,7 +1065,7 @@ function ModalARCA({
     }
     return Number(p.montoActual) || 0;
   };
-  const importe = ultimoPago ? ultimoPago.montoPagado : montoDelMes(prop, mesSelec);
+  const importe = ultimoPago ? ultimoPago.montoPagado : montoRealParaMes(prop, mesSelec);
 
   // Verificar si hay actualización pendiente
   const actuPendiente = prop.proximaActualizacion && (prop.actualizaciones || []).length === 0;
@@ -1806,7 +1819,7 @@ function DetalleInmueble({
     val: prop.inquilino || "–"
   }, {
     label: "Alquiler vigente",
-    val: fARS(prop.montoActual) + (prop.montoVigenteDesde ? ` · desde ${ymLabel(prop.montoVigenteDesde)}` : ""),
+    val: fARS(montoRealParaMes(prop, nowYM())) + (() => { const acts=[...(prop.actualizaciones||[])].sort((a,b)=>a.mes.localeCompare(b.mes)); const px=acts.find(a=>a.mes>nowYM()); return px?` · próx. ${fARS(px.montoNuevo)} desde ${ymLabel(px.mes)}`:""; })(),
     gold: true
   }, {
     label: "Próx. actualización",
@@ -1960,18 +1973,19 @@ function TarjetaInmueble({
     className: "bg-[#060a15]/80 rounded-xl p-2.5 border border-[#1e2a45]/50"
   }, /*#__PURE__*/React.createElement("div", {
     className: "text-xs text-[#4a6080] mb-0.5"
-  }, "Alquiler vigente"), /*#__PURE__*/React.createElement("div", {
+  }, "Alquiler"), /*#__PURE__*/React.createElement("div", {
     className: "text-sm font-bold text-amber-300"
-  }, fARS(prop.montoActual)), prop.montoVigenteDesde && /*#__PURE__*/React.createElement("div", {
-    className: "text-xs text-[#4a6080]"
-  }, "desde ", ymLabel(prop.montoVigenteDesde)),
+  }, fARS(montoRealParaMes(prop, nowYM()))),
   (() => {
-    const acts = [...(prop.actualizaciones||[])].sort((a,b)=>b.mes.localeCompare(a.mes));
-    const prox = acts.find(a=>a.mes>nowYM());
-    if(prox&&prox.montoNuevo!==Number(prop.montoActual)) return React.createElement("div",{className:"mt-1 pt-1 border-t border-[#1e2a45]/50"},
+    // Mostrar "desde" solo si el monto actual rige desde este mes o antes
+    const montoHoy = montoRealParaMes(prop, nowYM());
+    // Buscar próximo monto (actualizacion futura)
+    const acts = [...(prop.actualizaciones||[])].sort((a,b)=>a.mes.localeCompare(b.mes));
+    const proxAct = acts.find(a=>a.mes>nowYM());
+    if(proxAct) return React.createElement("div",{className:"mt-1 pt-1 border-t border-[#1e2a45]/50"},
       React.createElement("div",{className:"text-[10px] text-indigo-400 font-semibold"},"Próximo"),
-      React.createElement("div",{className:"text-xs font-bold text-indigo-300"},fARS(prox.montoNuevo)),
-      React.createElement("div",{className:"text-[10px] text-[#4a6080]"},"desde ",ymLabel(prox.mes)));
+      React.createElement("div",{className:"text-xs font-bold text-indigo-300"},fARS(proxAct.montoNuevo)),
+      React.createElement("div",{className:"text-[10px] text-[#4a6080]"},"desde ",ymLabel(proxAct.mes)));
     return null;
   })()), /*#__PURE__*/React.createElement("div", {
     className: "bg-[#060a15]/80 rounded-xl p-2.5 border border-[#1e2a45]/50"
@@ -2217,7 +2231,7 @@ function App() {
   }, 0);
   const totalPendienteMes = props.reduce((s, p) => {
     const pago = (p.pagos || []).find(x => x.mes === curYM);
-    return s + (pago ? 0 : montoParaMes(p, curYM));
+    return s + (pago ? 0 : montoRealParaMes(p, curYM));
   }, 0);
   const totalEsperadoMes = totalCobradoMes + totalPendienteMes;
   const cobradosMes = props.filter(p => (p.pagos || []).some(x => x.mes === curYM)).length;
