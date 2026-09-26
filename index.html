@@ -74,6 +74,7 @@
 <script>
 
 
+
 // Retorna el monto que corresponde a un mes dado, usando el historial de actualizaciones
 function montoRealParaMes(prop, ym) {
   const acts = [...(prop.actualizaciones||[])].sort((a,b)=>a.mes.localeCompare(b.mes));
@@ -1405,23 +1406,23 @@ function HistorialMontos({
   const historial = [];
   const acts = [...(prop.actualizaciones || [])].sort((a, b) => a.mes.localeCompare(b.mes));
   
-  // Calcular fecha inicio del monto inicial
+  const periodo = Number(prop.periodoActualizacion) || 3;
   let desdeInicial = "";
-  if (prop.inicioContrato) {
-    // Convertir YYYY-MM-DD a YYYY-MM
-    desdeInicial = prop.inicioContrato.substring(0, 7);
-  } else if (acts.length > 0) {
-    // Sin fecha de inicio: restar el período al mes de la primera actualización
-    const periodo = Number(prop.periodoActualizacion) || 3;
+  if (acts.length > 0) {
     const [ay, am] = acts[0].mes.split("-").map(Number);
     const d = new Date(ay, am - 1 - periodo, 1);
-    desdeInicial = makeYM(d.getFullYear(), d.getMonth() + 1);
+    const desdeCalculado = makeYM(d.getFullYear(), d.getMonth() + 1);
+    const inicioMes = prop.inicioContrato ? prop.inicioContrato.substring(0, 7) : "";
+    desdeInicial = (inicioMes && inicioMes >= desdeCalculado) ? inicioMes : desdeCalculado;
+  } else if (prop.inicioContrato) {
+    desdeInicial = prop.inicioContrato.substring(0, 7);
   }
 
   // Monto inicial (antes de la primera actualización)
   if (acts.length > 0 || prop.montoActual) {
     const montoInicial = acts.length > 0 ? acts[0].montoAnterior : Number(prop.montoActual) || 0;
-    const hastaInicial = acts.length > 0 ? `hasta ${ymLabel(acts[0].mes)}` : "vigente";
+    const hastaInicialMes = acts.length > 0 ? ymAdd(acts[0].mes, -1) : null;
+    const hastaInicial = hastaInicialMes ? `hasta ${ymLabel(hastaInicialMes)}` : "vigente";
     historial.push({
       id: "inicial",
       monto: montoInicial,
@@ -1434,7 +1435,7 @@ function HistorialMontos({
 
   // Cada actualización registrada
   acts.forEach((a, i) => {
-    const hasta = i < acts.length - 1 ? `hasta ${ymLabel(acts[i + 1].mes)}` : "vigente";
+    const hMes = i < acts.length - 1 ? ymAdd(acts[i+1].mes,-1) : null; const hasta = hMes ? `hasta ${ymLabel(hMes)}` : "vigente";
     historial.push({
       id: a.id,
       monto: a.montoNuevo,
@@ -2249,10 +2250,20 @@ function App() {
     const pago = (p.pagos || []).find(x => x.mes === curYM);
     return s + (pago ? pago.montoPagado : 0);
   }, 0);
-  const totalPendienteMes = props.reduce((s, p) => {
+  const hoyDia = new Date().getDate();
+  const totalPendienteEnTermino = props.reduce((s, p) => {
     const pago = (p.pagos || []).find(x => x.mes === curYM);
-    return s + (pago ? 0 : montoRealParaMes(p, curYM));
+    if (pago) return s;
+    const vence = Number(p.diaVencimientoPago) || 5;
+    return hoyDia <= vence ? s + montoRealParaMes(p, curYM) : s;
   }, 0);
+  const totalPendienteVencido = props.reduce((s, p) => {
+    const pago = (p.pagos || []).find(x => x.mes === curYM);
+    if (pago) return s;
+    const vence = Number(p.diaVencimientoPago) || 5;
+    return hoyDia > vence ? s + montoRealParaMes(p, curYM) : s;
+  }, 0);
+  const totalPendienteMes = totalPendienteEnTermino + totalPendienteVencido;
   const totalEsperadoMes = totalCobradoMes + totalPendienteMes;
   const cobradosMes = props.filter(p => (p.pagos || []).some(x => x.mes === curYM)).length;
   const arcaMes = props.filter(p => (p.pagos || []).some(x => x.mes === curYM && x.facturaARCA)).length;
@@ -2349,6 +2360,8 @@ function App() {
     sub: `${ymLabel(curYM)}`,
     gold: true,
     cobrado: totalCobradoMes > 0 ? fARS(totalCobradoMes) : null,
+    enTermino: totalPendienteEnTermino > 0 ? fARS(totalPendienteEnTermino) : null,
+    vencido: totalPendienteVencido > 0 ? fARS(totalPendienteVencido) : null,
     falta: totalPendienteMes > 0 ? fARS(totalPendienteMes) : null
   }].map(s => /*#__PURE__*/React.createElement("div", {
     key: s.label,
@@ -2359,13 +2372,11 @@ function App() {
     className: `text-xl font-bold leading-none ${s.gold ? "text-amber-300" : "text-[#e2eaf6]"}`
   }, s.val), s.cobrado && /*#__PURE__*/React.createElement("div", {
     className: "text-sm font-bold text-emerald-400 mt-1"
-  }, s.cobrado, " cobrado"), s.falta && /*#__PURE__*/React.createElement("div", {
-    className: "text-sm font-bold text-rose-400"
-  }, s.falta, " pendiente"), !s.cobrado && !s.falta && /*#__PURE__*/React.createElement("div", {
-    className: "text-xs text-[#4a6080] mt-1"
-  }, s.sub), (s.cobrado || s.falta) && /*#__PURE__*/React.createElement("div", {
-    className: "text-xs text-[#4a6080] mt-1"
-  }, s.sub)))), props.length > 0 && /*#__PURE__*/React.createElement("div", {
+  }, s.cobrado, " cobrado"),
+  s.enTermino && /*#__PURE__*/React.createElement("div", {className: "text-sm font-bold text-amber-400"}, s.enTermino, " en término"),
+  s.vencido && /*#__PURE__*/React.createElement("div", {className: "text-sm font-bold text-rose-400"}, s.vencido, " vencido"),
+  !s.cobrado && !s.enTermino && !s.vencido && /*#__PURE__*/React.createElement("div", {className: "text-xs text-[#4a6080] mt-1"}, s.sub),
+  (s.cobrado || s.enTermino || s.vencido) && /*#__PURE__*/React.createElement("div", {className: "text-xs text-[#4a6080] mt-1"}, s.sub)))), props.length > 0 && /*#__PURE__*/React.createElement("div", {
     className: "flex gap-1 glass rounded-xl p-1 border border-[#1e2a45]/60 w-fit"
   }, [["todos", "Todos", props.length], ["1", L1, props.filter(p => p.locador === "1").length], ["2", L2, props.filter(p => p.locador === "2").length]].map(([k, label, count]) => /*#__PURE__*/React.createElement("button", {
     key: k,
@@ -2433,6 +2444,7 @@ function App() {
   }));
 }
 ReactDOM.createRoot(document.getElementById("root")).render(/*#__PURE__*/React.createElement(App, null));
+
 
 </script>
 </body>
