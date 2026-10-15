@@ -75,17 +75,24 @@
 
 
 
+
 // Retorna el monto que corresponde a un mes dado, usando el historial de actualizaciones
 function montoRealParaMes(prop, ym) {
   const acts = [...(prop.actualizaciones||[])].sort((a,b)=>a.mes.localeCompare(b.mes));
-  // Si el mes pedido es anterior a la primera actualización, usar montoAnterior de la primera
-  if(acts.length>0 && ym<acts[0].mes) return acts[0].montoAnterior;
-  // Buscar la última actualización cuyo mes sea <= ym
-  for(let i=acts.length-1;i>=0;i--) {
-    if(acts[i].mes<=ym) return acts[i].montoNuevo;
-  }
-  // Sin actualizaciones: usar montoActual
-  return Number(prop.montoActual)||0;
+  if(acts.length===0) return Number(prop.montoActual)||0;
+
+  // Si el mes pedido >= montoVigenteDesde (o no hay montoVigenteDesde), el monto vigente es montoActual
+  const vigDesde = prop.montoVigenteDesde || "";
+  if(!vigDesde || ym >= vigDesde) return Number(prop.montoActual)||0;
+
+  // El mes pedido es anterior a montoVigenteDesde: buscar montoAnterior de la primera
+  // actualización cuyo mes es > ym (esa actualización capturó el montoActual redondeado
+  // que estaba vigente antes de aplicarse)
+  const proxAct = acts.find(a => a.mes > ym);
+  if(proxAct) return proxAct.montoAnterior;
+
+  // Fallback: primera actualización
+  return acts[0].montoAnterior;
 }
 const {
   useState,
@@ -2444,6 +2451,7 @@ function App() {
   }));
 }
 ReactDOM.createRoot(document.getElementById("root")).render(/*#__PURE__*/React.createElement(App, null));
+
 
 
 </script>
