@@ -78,6 +78,7 @@
 
 
 
+
 // Retorna el monto que corresponde a un mes dado, usando el historial de actualizaciones
 function montoRealParaMes(prop, ym) {
   const acts = [...(prop.actualizaciones||[])].sort((a,b)=>a.mes.localeCompare(b.mes));
@@ -2124,7 +2125,25 @@ function ModalConfig({
       [kPv]: e.target.value
     })),
     placeholder: "00001"
-  })))), /*#__PURE__*/React.createElement("div", {
+  })))), React.createElement("div", {className: "border-t border-[#1e2a45]/60 pt-4"},
+    React.createElement("div", {className: "text-xs font-bold text-amber-400 uppercase tracking-widest mb-1"}, "📊 Monotributo"),
+    React.createElement("div", {className: "text-[11px] text-[#5a7090] mb-3"}, "Categoría vigente y tope anual de facturación publicado por ARCA. Se actualiza dos veces por año."),
+    [["1", s.locador1 || "Locador 1"], ["2", s.locador2 || "Locador 2"]].map(([k, nombre]) =>
+      React.createElement("div", {key: "mono" + k, className: "mb-3 p-3 rounded-xl border " + (k === "1" ? "border-indigo-800/40" : "border-violet-800/40")},
+        React.createElement("div", {className: "text-xs font-semibold mb-2 " + (k === "1" ? "text-indigo-300" : "text-violet-300")}, nombre),
+        React.createElement("div", {className: "grid grid-cols-2 gap-3"},
+          React.createElement("div", null,
+            React.createElement("label", {className: lbl}, "Categoría (letra)"),
+            React.createElement("input", {className: inp, maxLength: 2, value: s["categoriaMonotributo" + k] || "", onChange: e => { const v = e.target.value.toUpperCase(); setS(x => ({...x, ["categoriaMonotributo" + k]: v})); }, placeholder: "Ej: H"})
+          ),
+          React.createElement("div", null,
+            React.createElement("label", {className: lbl}, "Tope anual ($)"),
+            React.createElement("input", {className: inp, type: "number", value: s["montoMaxMonotributo" + k] || "", onChange: e => { const v = e.target.value; setS(x => ({...x, ["montoMaxMonotributo" + k]: v})); }, placeholder: "Monto máximo"})
+          )
+        )
+      )
+    )
+  ), /*#__PURE__*/React.createElement("div", {
     className: "flex gap-3"
   }, /*#__PURE__*/React.createElement("button", {
     onClick: () => onSave(s),
@@ -2166,7 +2185,13 @@ function MonotributoPanel({props,settings}){
     React.createElement("button",{className:"w-full px-5 py-3 flex items-center justify-between cursor-pointer hover:bg-white/5",onClick:()=>setExp(v=>!v)},
       React.createElement("div",{className:"flex items-center gap-2"},
         React.createElement("span",{className:"text-sm font-semibold gradient-text"},"📊 Monotributo"),
-        React.createElement("span",{className:"text-xs text-[#5a7090]"},"Control de facturación")
+        React.createElement("span",{className:"text-xs text-[#7a90aa]"},
+          ["1","2"].map(k=>{
+            const nm=(settings["locador"+k]||("Locador "+k)).split(" ")[0];
+            const c=settings["categoriaMonotributo"+k];
+            const m=Number(settings["montoMaxMonotributo"+k])||0;
+            return nm+": "+(c?("Cat. "+c):"sin categoría")+(m>0?" · tope "+fARS(m):"");
+          }).join("   |   "))
       ),
       React.createElement("span",{className:"text-[#5a7090] text-sm"},exp?"▲":"▼")
     ),
@@ -2511,6 +2536,7 @@ function App() {
   }));
 }
 ReactDOM.createRoot(document.getElementById("root")).render(/*#__PURE__*/React.createElement(App, null));
+
 
 
 
