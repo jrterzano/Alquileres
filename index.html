@@ -76,6 +76,8 @@
 
 
 
+
+
 // Retorna el monto que corresponde a un mes dado, usando el historial de actualizaciones
 function montoRealParaMes(prop, ym) {
   const acts = [...(prop.actualizaciones||[])].sort((a,b)=>a.mes.localeCompare(b.mes));
@@ -268,7 +270,7 @@ function calcAlertas(props) {
       const entradas = migrarPendientes(pendientes, p.proximaActualizacion, periodo, p.tipoIndice || "IPC IDECBA");
       const todosCargados = entradas.length >= periodo && entradas.every(e => e.valor !== null && e.valor !== "");
       const aplicada = (p.actualizaciones || []).some(a => a.mes === p.proximaActualizacion);
-      if (hy === py && hm === pm && hd >= 15 && !todosCargados && !aplicada) res.push({
+      if (hy === py && hm === pm && !todosCargados && !aplicada) res.push({
         tipo: "indices",
         prop: p,
         mes: p.proximaActualizacion,
@@ -276,6 +278,7 @@ function calcAlertas(props) {
       });
     }
   });
+  getPeriodosMonotributo().forEach(p=>{if(!res.find(r=>r.id===p.id))res.push(p);});
   return res;
 }
 
@@ -312,13 +315,21 @@ const EMPTY_PROP = {
   contratos: []
 };
 const DEFAULT_SETTINGS = {
-  locador1: "",
-  cuit1: "20-16197324-7",
-  puntoVenta1: "00003",
-  locador2: "",
-  cuit2: "27-16677699-1",
-  puntoVenta2: "00001"
+  locador1: "", cuit1: "20-16197324-7", puntoVenta1: "00003",
+  categoriaMonotributo1: "", montoMaxMonotributo1: "",
+  locador2: "", cuit2: "27-16677699-1", puntoVenta2: "00001",
+  categoriaMonotributo2: "", montoMaxMonotributo2: ""
 };
+
+function calcMonotributo(props, locador, desde, hasta) {
+  return props.filter(p=>p.locador===locador).reduce((t,p)=>t+(p.pagos||[]).filter(x=>x.mes>=desde&&x.mes<=hasta).reduce((s,x)=>s+(x.montoPagado||0),0),0);
+}
+function getPeriodosMonotributo() {
+  const h=new Date(),a=h.getFullYear(),m=h.getMonth()+1,d=h.getDate(),r=[];
+  if(m===1&&d>=5&&d<=15) r.push({tipo:"monotributo",label:`Facturación ${a-1} (Ene-Dic)`,desde:`${a-1}-01`,hasta:`${a-1}-12`,id:`mono-anual-${a-1}`});
+  if(m===7&&d>=5&&d<=15) r.push({tipo:"monotributo",label:`Facturación Jul ${a-1} - Jun ${a}`,desde:`${a-1}-07`,hasta:`${a}-06`,id:`mono-semestral-${a-1}-${a}`});
+  return r;
+}
 
 // ── ESTILOS ───────────────────────────────────────────────────────────────────
 const inp = "w-full bg-[#060a15]/80 border border-[#1e2a45] rounded-xl px-3 py-2.5 text-[#e2eaf6] text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 transition-all duration-200 placeholder-[#2a3a55] backdrop-blur-sm";
@@ -2124,6 +2135,48 @@ function ModalConfig({
   }, "Cancelar"))));
 }
 
+
+function MonotributoPanel({props,settings}){
+  const[exp,setExp]=React.useState(false);
+  const hoy=new Date(),a=hoy.getFullYear();
+  const hace12=(()=>{const d=new Date();d.setMonth(d.getMonth()-11);return makeYM(d.getFullYear(),d.getMonth()+1);})();
+  const renderLoc=(k)=>{
+    const n=settings[`locador${k}`]||`Locador ${k}`;
+    const cat=settings[`categoriaMonotributo${k}`]||"–";
+    const max=Number(settings[`montoMaxMonotributo${k}`])||0;
+    const s12=calcMonotributo(props,k,hace12,nowYM());
+    const sSem=calcMonotributo(props,k,`${a-1}-07`,`${a}-06`);
+    const sAnual=calcMonotributo(props,k,`${a-1}-01`,`${a-1}-12`);
+    const pct=(s)=>max>0?Math.round(s/max*100):null;
+    const col=(p)=>p===null?"text-[#5a7090]":p>=100?"text-rose-400 font-bold":p>=85?"text-amber-400":"text-emerald-400";
+    const row=(label,suma)=>React.createElement("div",{className:"flex justify-between text-xs py-0.5"},
+      React.createElement("span",{className:"text-[#5a7090]"},label),
+      React.createElement("span",{className:col(pct(suma))},`${fARS(suma)}${pct(suma)!==null?" ("+pct(suma)+"%)":""}`));
+    return React.createElement("div",{key:k,className:`p-3 rounded-xl border ${k==="1"?"border-blue-800/40 bg-blue-950/20":"border-violet-800/40 bg-violet-950/20"}`},
+      React.createElement("div",{className:"flex items-center justify-between mb-2"},
+        React.createElement("span",{className:`text-xs font-bold ${k==="1"?"text-blue-300":"text-violet-300"}`},n),
+        React.createElement("span",{className:"text-xs bg-amber-950/60 border border-amber-700/40 text-amber-300 px-2 py-0.5 rounded-full"},`Cat. ${cat}${max>0?" · "+fARS(max):""}`)
+      ),
+      row(`Últ. 12 meses`,s12),
+      row(`Jul ${a-1} → Jun ${a}`,sSem),
+      row(`Ene ${a-1} → Dic ${a-1}`,sAnual)
+    );
+  };
+  return React.createElement("div",{className:"glass border border-[#1e2a45]/60 rounded-2xl overflow-hidden"},
+    React.createElement("button",{className:"w-full px-5 py-3 flex items-center justify-between cursor-pointer hover:bg-white/5",onClick:()=>setExp(v=>!v)},
+      React.createElement("div",{className:"flex items-center gap-2"},
+        React.createElement("span",{className:"text-sm font-semibold gradient-text"},"📊 Monotributo"),
+        React.createElement("span",{className:"text-xs text-[#5a7090]"},"Control de facturación")
+      ),
+      React.createElement("span",{className:"text-[#5a7090] text-sm"},exp?"▲":"▼")
+    ),
+    exp&&React.createElement("div",{className:"px-5 pb-4 space-y-3"},
+      renderLoc("1"),renderLoc("2"),
+      React.createElement("div",{className:"text-[10px] text-[#4a6080] pt-1"},"⚙️ Configurá categoría y tope en Ajustes · Rojo = superaste el tope")
+    )
+  );
+}
+
 // ── APP ───────────────────────────────────────────────────────────────────────
 function App() {
   const [props, setProps] = useState([]);
@@ -2179,7 +2232,12 @@ function App() {
         if (await enviarAlertaEmail(titulo, mensaje)) ok = true;
       }
       if (ok) {
-        await window.fbSet("alertasNotif", JSON.stringify([...notifPrev, ...nuevas.map(a => a.id)]));
+        // Solo conservar IDs de alertas aún vigentes (limpiar las caducadas)
+        const hoyYM = nowYM();
+        const todasActuales = calcAlertas(props).map(a => a.id);
+        const vigentes = [...notifPrev, ...nuevas.map(a => a.id)]
+          .filter(id => todasActuales.includes(id) || id.includes(hoyYM));
+        await window.fbSet("alertasNotif", JSON.stringify(vigentes));
         setEmailStatus("ok");
         setTimeout(() => setEmailStatus(null), 5000);
       } else {
@@ -2216,8 +2274,9 @@ function App() {
     saveProps(props.filter(p => p.id !== id));
     setModal(null);
   };
-  const handleUpdateAll = todos => {
+  const handleUpdateAll = async todos => {
     saveProps(todos);
+    try{await window.enviarEmail("📊 Índices cargados","Se registraron índices de actualización. Verificá si algún inmueble ya fue actualizado.");}catch(e){}
     // Actualizar el prop del modal si está abierto
     setModal(m => {
       if (m && m.tipo === "detalle" && m.prop) {
@@ -2347,7 +2406,7 @@ function App() {
     className: "text-base mt-0.5 shrink-0"
   }, a.tipo === "vencimiento" ? "⚠️" : "📊"), /*#__PURE__*/React.createElement("span", {
     className: "text-sm"
-  }, a.tipo === "vencimiento" ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("strong", null, a.prop.direccion), ": vence en ", /*#__PURE__*/React.createElement("strong", null, a.dias, " días"), " (", fDate(a.venc), ")") : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("strong", null, a.prop.direccion), ": cargá los índices de actualización (", a.prop.tipoIndice || "IPC IDECBA", ") para ", ymLabel(a.mes)))))), /*#__PURE__*/React.createElement("div", {
+  }, a.tipo === "vencimiento" ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("strong", null, a.prop.direccion), ": vence en ", /*#__PURE__*/React.createElement("strong", null, a.dias, " días"), " (", fDate(a.venc), ")") : a.tipo==="monotributo" ? /*#__PURE__*/React.createElement(React.Fragment,null,"📊 ",a.label," — revisá tu categoría de monotributo") : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("strong", null, a.prop&&a.prop.direccion), ": cargá los índices de actualización (", a.prop&&(a.prop.tipoIndice || "IPC IDECBA"), ") para ", ymLabel(a.mes)))))), /*#__PURE__*/React.createElement("div", {
     className: "grid grid-cols-2 lg:grid-cols-4 gap-3"
   }, [{
     label: "Inmuebles",
@@ -2389,7 +2448,8 @@ function App() {
     key: k,
     onClick: () => setFiltro(k),
     className: `px-3 py-2 rounded-lg text-xs font-bold whitespace-nowrap cursor-pointer ${filtro === k ? "bg-gray-800 text-[#e2eaf6]" : "text-[#4a6080] hover:text-[#7a90aa]"}`
-  }, label, " (", count, ")"))), filtrado.length === 0 ? /*#__PURE__*/React.createElement("div", {
+  }, label, " (", count, ")"))), /*#__PURE__*/React.createElement(MonotributoPanel,{props:props,settings:settings}),
+        filtrado.length === 0 ? /*#__PURE__*/React.createElement("div", {
     className: "text-center py-24"
   }, /*#__PURE__*/React.createElement("div", {
     className: "text-5xl mb-4"
@@ -2451,6 +2511,8 @@ function App() {
   }));
 }
 ReactDOM.createRoot(document.getElementById("root")).render(/*#__PURE__*/React.createElement(App, null));
+
+
 
 
 
