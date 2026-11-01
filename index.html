@@ -80,6 +80,7 @@
 
 
 
+
 // Retorna el monto que corresponde a un mes dado, usando el historial de actualizaciones
 // Unifica el monto calculado por el índice con el monto redondeado que cargó el usuario.
 function _tz(n){ n=Math.round(Number(n)||0); if(!n) return -1; let c=0; while(n%10===0){ n/=10; c++; } return c; }
@@ -349,8 +350,14 @@ const DEFAULT_SETTINGS = {
   categoriaMonotributo2: "", montoMaxMonotributo2: ""
 };
 
-function calcMonotributo(props, locador, desde, hasta) {
-  return props.filter(p=>p.locador===locador).reduce((t,p)=>t+(p.pagos||[]).filter(x=>x.mes>=desde&&x.mes<=hasta).reduce((s,x)=>s+(x.montoPagado||0),0),0);
+function calcMonotributo(props, locador, desde, hasta, bajas) {
+  const suma = arr => (arr||[]).filter(x=>x.mes>=desde&&x.mes<=hasta).reduce((s,x)=>s+(Number(x.montoPagado)||0),0);
+  // Contrato vigente + contratos anteriores archivados de cada inmueble
+  const deInmuebles = props.filter(p=>p.locador===locador)
+    .reduce((t,p)=>t+suma(p.pagos)+(p.contratos||[]).reduce((u,c)=>u+suma(c.pagos),0),0);
+  // Inmuebles dados de baja cuyo total facturado se decidió conservar
+  const deBajas = (bajas||[]).filter(b=>b.locador===locador).reduce((t,b)=>t+suma(b.pagos),0);
+  return deInmuebles + deBajas;
 }
 function getPeriodosMonotributo() {
   const h=new Date(),a=h.getFullYear(),m=h.getMonth()+1,d=h.getDate(),r=[];
@@ -2199,7 +2206,7 @@ function ModalConfig({
 }
 
 
-function MonotributoPanel({props,settings}){
+function MonotributoPanel({props,settings,bajas}){
   const[exp,setExp]=React.useState(false);
   const hoy=new Date(),a=hoy.getFullYear();
   const hace12=(()=>{const d=new Date();d.setMonth(d.getMonth()-11);return makeYM(d.getFullYear(),d.getMonth()+1);})();
@@ -2207,9 +2214,9 @@ function MonotributoPanel({props,settings}){
     const n=settings[`locador${k}`]||`Locador ${k}`;
     const cat=settings[`categoriaMonotributo${k}`]||"–";
     const max=Number(settings[`montoMaxMonotributo${k}`])||0;
-    const s12=calcMonotributo(props,k,hace12,nowYM());
-    const sSem=calcMonotributo(props,k,`${a-1}-07`,`${a}-06`);
-    const sAnual=calcMonotributo(props,k,`${a-1}-01`,`${a-1}-12`);
+    const s12=calcMonotributo(props,k,hace12,nowYM(),bajas);
+    const sSem=calcMonotributo(props,k,`${a-1}-07`,`${a}-06`,bajas);
+    const sAnual=calcMonotributo(props,k,`${a-1}-01`,`${a-1}-12`,bajas);
     const pct=(s)=>max>0?Math.round(s/max*100):null;
     const col=(p)=>p===null?"text-[#5a7090]":p>=100?"text-rose-400 font-bold":p>=85?"text-amber-400":"text-emerald-400";
     const row=(label,suma)=>React.createElement("div",{className:"flex justify-between text-xs py-0.5"},
@@ -2241,7 +2248,7 @@ function MonotributoPanel({props,settings}){
     ),
     exp&&React.createElement("div",{className:"px-5 pb-4 space-y-3"},
       renderLoc("1"),renderLoc("2"),
-      React.createElement("div",{className:"text-[10px] text-[#4a6080] pt-1"},"⚙️ Configurá categoría y tope en Ajustes · Rojo = superaste el tope")
+      React.createElement("div",{className:"text-[10px] text-[#4a6080] pt-1"},"Incluye contratos anteriores"+((bajas||[]).length>0?" y "+(bajas||[]).length+" inmueble(s) dado(s) de baja":"")+" · ⚙️ Categoría y tope en Configuración · Rojo = superaste el tope")
     )
   );
 }
@@ -2250,6 +2257,7 @@ function MonotributoPanel({props,settings}){
 function App() {
   const [props, setProps] = useState([]);
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
+  const [bajas, setBajas] = useState([]);
   const [loaded, setLoaded] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [emailStatus, setEmailStatus] = useState(null);
@@ -2268,6 +2276,8 @@ function App() {
           setProps(fixed);
           if (fixed.some((p, i) => p !== arr[i])) await window.fbSet("props", JSON.stringify(fixed));
         }
+        const rb = await window.fbGet("bajas");
+        if (rb) { try { setBajas(JSON.parse(rb)); } catch (e) {} }
         const r2 = await window.fbGet("settings");
         if (r2) setSettings(s => ({
           ...DEFAULT_SETTINGS,
@@ -2344,7 +2354,23 @@ function App() {
     } : m);
   };
   const handleDelete = id => {
-    if (!confirm("¿Eliminar este inmueble?")) return;
+    const inm = props.find(p => p.id === id);
+    if (!confirm("¿Eliminar este inmueble?\n\nSe borrarán sus datos, cobros e historial de contratos.")) return;
+    if (inm) {
+      const todos = [...(inm.pagos || []), ...(inm.contratos || []).flatMap(c => c.pagos || [])];
+      const total = todos.reduce((s, x) => s + (Number(x.montoPagado) || 0), 0);
+      if (todos.length > 0 && confirm("¿Conservar el total facturado de este inmueble para el control del monotributo?\n\nAceptar = se conserva solo mes y monto de cada cobro (" + fARS(total) + " en total), sin datos del inquilino.\nCancelar = se descarta y deja de sumarse.")) {
+        const nuevas = [...bajas, {
+          id: inm.id,
+          direccion: inm.direccion,
+          locador: inm.locador,
+          fechaBaja: todayStr(),
+          pagos: todos.map(x => ({mes: x.mes, montoPagado: Number(x.montoPagado) || 0}))
+        }];
+        setBajas(nuevas);
+        window.fbSet("bajas", JSON.stringify(nuevas));
+      }
+    }
     saveProps(props.filter(p => p.id !== id));
     setModal(null);
   };
@@ -2522,7 +2548,7 @@ function App() {
     key: k,
     onClick: () => setFiltro(k),
     className: `px-3 py-2 rounded-lg text-xs font-bold whitespace-nowrap cursor-pointer ${filtro === k ? "bg-gray-800 text-[#e2eaf6]" : "text-[#4a6080] hover:text-[#7a90aa]"}`
-  }, label, " (", count, ")"))), /*#__PURE__*/React.createElement(MonotributoPanel,{props:props,settings:settings}),
+  }, label, " (", count, ")"))), /*#__PURE__*/React.createElement(MonotributoPanel,{props:props,settings:settings,bajas:bajas}),
         filtrado.length === 0 ? /*#__PURE__*/React.createElement("div", {
     className: "text-center py-24"
   }, /*#__PURE__*/React.createElement("div", {
@@ -2585,6 +2611,7 @@ function App() {
   }));
 }
 ReactDOM.createRoot(document.getElementById("root")).render(/*#__PURE__*/React.createElement(App, null));
+
 
 
 
