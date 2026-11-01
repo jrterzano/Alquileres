@@ -79,7 +79,34 @@
 
 
 
+
 // Retorna el monto que corresponde a un mes dado, usando el historial de actualizaciones
+// Unifica el monto calculado por el índice con el monto redondeado que cargó el usuario.
+function _tz(n){ n=Math.round(Number(n)||0); if(!n) return -1; let c=0; while(n%10===0){ n/=10; c++; } return c; }
+function _cerca(a,b){ a=Number(a)||0; b=Number(b)||0; const m=Math.max(a,b); return m>0 && Math.abs(a-b)/m<=0.03; }
+function _masRedondo(a,b){ return _tz(a)>=_tz(b) ? a : b; }
+function sincronizarMontos(prop){
+  const orig = prop.actualizaciones || [];
+  if(orig.length===0) return prop;
+  const acts = [...orig].sort((a,b)=>a.mes.localeCompare(b.mes)).map(a=>({...a}));
+  let changed = false;
+  let montoActual = Number(prop.montoActual)||0;
+  const ult = acts[acts.length-1];
+  if(montoActual!==ult.montoNuevo && _cerca(montoActual, ult.montoNuevo)){
+    const v=_masRedondo(montoActual, ult.montoNuevo);
+    montoActual=v; ult.montoNuevo=v; changed=true;
+  }
+  for(let i=1;i<acts.length;i++){
+    const prev=acts[i-1], cur=acts[i];
+    if(prev.montoNuevo!==cur.montoAnterior && _cerca(prev.montoNuevo, cur.montoAnterior)){
+      const v=_masRedondo(prev.montoNuevo, cur.montoAnterior);
+      prev.montoNuevo=v; cur.montoAnterior=v; changed=true;
+    }
+  }
+  if(!changed && String(prop.montoActual)===String(montoActual)) return prop;
+  return {...prop, montoActual, actualizaciones: acts};
+}
+
 function montoRealParaMes(prop, ym) {
   const acts = [...(prop.actualizaciones||[])].sort((a,b)=>a.mes.localeCompare(b.mes));
   if(acts.length===0) return Number(prop.montoActual)||0;
@@ -397,7 +424,7 @@ function FormInmueble({
     const montoAnterior = initial ? Number(initial.montoActual) || 0 : 0;
     const montoNuevo = Number(f.montoActual) || 0;
     const montoVigenteDesde = f.montoVigenteDesde || "";
-    if (initial && montoNuevo !== montoAnterior && montoVigenteDesde > nowYM() && montoAnterior > 0) {
+    if (initial && montoNuevo !== montoAnterior && !_cerca(montoNuevo, montoAnterior) && montoVigenteDesde > nowYM() && montoAnterior > 0) {
       const entradaAnterior = {
         id: Date.now() + 1,
         monto: montoAnterior,
@@ -410,6 +437,16 @@ function FormInmueble({
       if (!yaExiste) propFinal = {
         ...propFinal,
         historialManual: [...histExistente, entradaAnterior]
+      };
+    }
+    // Si solo se redondeó el monto vigente, reflejarlo también en la última actualización
+    if (initial && (propFinal.actualizaciones || []).length > 0 && montoNuevo !== montoAnterior && _cerca(montoNuevo, montoAnterior)) {
+      const orden = [...propFinal.actualizaciones].sort((a, b) => a.mes.localeCompare(b.mes));
+      const ultId = orden[orden.length - 1].id;
+      propFinal = {
+        ...propFinal,
+        montoActual: montoNuevo,
+        actualizaciones: propFinal.actualizaciones.map(a => a.id === ultId ? {...a, montoNuevo: montoNuevo} : a)
       };
     }
     onSave(propFinal);
@@ -1476,13 +1513,20 @@ function HistorialMontos({
   historial.sort((a, b) => (a.desde || "").localeCompare(b.desde || ""));
   const guardarEdicion = item => {
     if (item.tipo === "actualizacion") {
-      const acts = (prop.actualizaciones || []).map(a => a.id === item.id ? {
-        ...a,
-        montoNuevo: Number(editMonto)
-      } : a);
+      const v = Number(editMonto);
+      const ordenadas = [...(prop.actualizaciones || [])].sort((a, b) => a.mes.localeCompare(b.mes));
+      const idx = ordenadas.findIndex(a => a.id === item.id);
+      const siguiente = idx >= 0 ? ordenadas[idx + 1] : null;
+      const acts = (prop.actualizaciones || []).map(a => {
+        if (a.id === item.id) return {...a, montoNuevo: v};
+        if (siguiente && a.id === siguiente.id) return {...a, montoAnterior: v};
+        return a;
+      });
+      const esUltima = idx >= 0 && idx === ordenadas.length - 1;
       onUpdate({
         ...prop,
-        actualizaciones: acts
+        actualizaciones: acts,
+        ...(esUltima ? {montoActual: v} : {})
       });
     } else if (item.tipo === "manual") {
       const hm = (prop.historialManual || []).map(h => h.id === item.id ? {
@@ -2218,7 +2262,12 @@ function App() {
       }));
       try {
         const r1 = await window.fbGet("props");
-        if (r1) setProps(JSON.parse(r1));
+        if (r1) {
+          const arr = JSON.parse(r1);
+          const fixed = arr.map(sincronizarMontos);
+          setProps(fixed);
+          if (fixed.some((p, i) => p !== arr[i])) await window.fbSet("props", JSON.stringify(fixed));
+        }
         const r2 = await window.fbGet("settings");
         if (r2) setSettings(s => ({
           ...DEFAULT_SETTINGS,
@@ -2536,6 +2585,7 @@ function App() {
   }));
 }
 ReactDOM.createRoot(document.getElementById("root")).render(/*#__PURE__*/React.createElement(App, null));
+
 
 
 
